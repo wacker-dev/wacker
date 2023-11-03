@@ -2,6 +2,9 @@ mod commands;
 
 use anyhow::Result;
 use clap::Parser;
+use tokio::net::UnixStream;
+use tonic::transport::Endpoint;
+use tower::service_fn;
 
 #[derive(Parser)]
 #[command(name = "wacker")]
@@ -22,8 +25,18 @@ enum Subcommand {
 impl Wacker {
     /// Executes the command.
     pub async fn execute(self) -> Result<()> {
+        let home_dir = dirs::home_dir().expect("Can't get home dir");
+        let path = home_dir.join(".wacker/wacker.sock");
+
+        let channel = Endpoint::try_from("http://[::]:50051")?
+            .connect_with_connector(service_fn(move |_| {
+                // Connect to a Uds socket
+                UnixStream::connect(path.to_str().unwrap().to_string())
+            }))
+            .await?;
+
         match self.subcommand {
-            Subcommand::Run(c) => c.execute().await,
+            Subcommand::Run(c) => c.execute(channel).await,
         }
     }
 }
