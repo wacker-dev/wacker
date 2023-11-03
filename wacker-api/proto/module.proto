@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+package module;
+
+service Module {
+  rpc Run (RunRequest) returns (google.protobuf.Empty) {}
+}
+
+message RunRequest {
+  string name = 1;
+  string path = 2;
+}
