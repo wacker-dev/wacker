@@ -33,7 +33,7 @@ impl module_server::Module for Module {
 
         if modules.contains_key(&req.name) {
             return Ok(Response::new(()));
-        };
+        }
 
         let env = self.env.clone();
         modules.insert(
