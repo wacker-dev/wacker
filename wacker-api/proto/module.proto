@@ -4,11 +4,28 @@ import "google/protobuf/empty.proto";
 
 package module;
 
-service Module {
-  rpc Run (RunRequest) returns (google.protobuf.Empty) {}
+service Modules {
+  rpc Run (RunRequest) returns (google.protobuf.Empty);
+  rpc List (google.protobuf.Empty) returns (ListResponse);
 }
 
 message RunRequest {
   string name = 1;
   string path = 2;
+}
+
+enum ModuleStatus {
+  Running = 0;
+  Finished = 1;
+  Error = 2;
+  Stopped = 3;
+}
+
+message Module {
+  string name = 1;
+  ModuleStatus status = 2;
+}
+
+message ListResponse {
+  repeated Module modules = 1;
 }

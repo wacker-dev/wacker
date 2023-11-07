@@ -20,6 +20,8 @@ struct Wacker {
 enum Subcommand {
     /// Runs a WebAssembly module
     Run(commands::RunCommand),
+    /// List running WebAssembly modules
+    List(commands::ListCommand),
 }
 
 impl Wacker {
@@ -37,6 +39,7 @@ impl Wacker {
 
         match self.subcommand {
             Subcommand::Run(c) => c.execute(channel).await,
+            Subcommand::List(c) => c.execute(channel).await,
         }
     }
 }

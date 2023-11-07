@@ -13,3 +13,4 @@ tokio = { version = "1.33.0", features = ["rt", "rt-multi-thread", "macros"] }
 dirs = "5.0"
 tower = "0.4.13"
 wacker-api = { path = "../wacker-api" }
+tabled = "0.14.0"
