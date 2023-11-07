@@ -1,5 +1,6 @@
 use crate::run::{run_module, Environment};
 use anyhow::{Error, Result};
+use log::{info, warn};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tokio::sync::{oneshot, oneshot::error::TryRecvError};
@@ -43,7 +44,7 @@ impl wacker_api::modules_server::Modules for Service {
             return Ok(Response::new(()));
         }
 
-        println!("Execute newly added module: {} ({})", req.name, req.path);
+        info!("Execute newly added module: {} ({})", req.name, req.path);
         let (sender, receiver) = oneshot::channel();
         let env = self.env.clone();
         modules.insert(
@@ -55,7 +56,7 @@ impl wacker_api::modules_server::Modules for Service {
                         Ok(_) => {}
                         Err(e) => {
                             if let Err(_) = sender.send(e) {
-                                println!("the receiver dropped");
+                                warn!("the receiver dropped");
                             }
                         }
                     }

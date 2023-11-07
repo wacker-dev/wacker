@@ -4,6 +4,8 @@ mod run;
 use crate::module::Service;
 use anyhow::Result;
 use dirs;
+use env_logger;
+use log::info;
 use std::fs;
 use tokio::net::UnixListener;
 use tokio_stream::wrappers::UnixListenerStream;
@@ -29,7 +31,12 @@ async fn main() -> Result<()> {
 
     let inner = Service::new()?;
 
-    println!("server listening on {:?}", path);
+    let env = env_logger::Env::default()
+        .filter_or("LOG_LEVEL", "info")
+        .write_style_or("LOG_STYLE", "never");
+    env_logger::init_from_env(env);
+
+    info!("server listening on {:?}", path);
     Server::builder()
         .add_service(ModulesServer::new(inner))
         .serve_with_incoming(uds_stream)
