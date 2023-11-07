@@ -22,6 +22,8 @@ enum Subcommand {
     Run(commands::RunCommand),
     /// List running WebAssembly modules
     List(commands::ListCommand),
+    /// Stops a WebAssembly module
+    Stop(commands::StopCommand),
 }
 
 impl Wacker {
@@ -40,6 +42,7 @@ impl Wacker {
         match self.subcommand {
             Subcommand::Run(c) => c.execute(channel).await,
             Subcommand::List(c) => c.execute(channel).await,
+            Subcommand::Stop(c) => c.execute(channel).await,
         }
     }
 }

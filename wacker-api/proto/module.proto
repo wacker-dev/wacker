@@ -7,6 +7,7 @@ package module;
 service Modules {
   rpc Run (RunRequest) returns (google.protobuf.Empty);
   rpc List (google.protobuf.Empty) returns (ListResponse);
+  rpc Stop (StopRequest) returns (google.protobuf.Empty);
 }
 
 message RunRequest {
@@ -28,4 +29,8 @@ message Module {
 
 message ListResponse {
   repeated Module modules = 1;
+}
+
+message StopRequest {
+  string name = 1;
 }

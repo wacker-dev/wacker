@@ -103,4 +103,22 @@ impl wacker_api::modules_server::Modules for Service {
 
         Ok(Response::new(reply))
     }
+
+    async fn stop(
+        &self,
+        request: Request<wacker_api::StopRequest>,
+    ) -> Result<Response<()>, Status> {
+        let req = request.into_inner();
+
+        let mut modules = self.modules.lock().unwrap();
+        match modules.get_mut(&req.name) {
+            Some(module) => {
+                info!("Stop the module: {}", req.name);
+                module.handler.abort();
+                module.status = Option::from(wacker_api::ModuleStatus::Stopped);
+                Ok(Response::new(()))
+            }
+            None => Err(Status::not_found(format!("module {} not exists", req.name))),
+        }
+    }
 }
