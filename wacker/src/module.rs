@@ -17,7 +17,7 @@ struct InnerModule {
     path: String,
     receiver: oneshot::Receiver<Error>,
     handler: task::JoinHandle<()>,
-    status: Option<wacker_api::ModuleStatus>,
+    status: wacker_api::ModuleStatus,
     error: Option<Error>,
 }
 
@@ -63,7 +63,7 @@ impl wacker_api::modules_server::Modules for Service {
                         }
                     }
                 }),
-                status: None,
+                status: wacker_api::ModuleStatus::Running,
                 error: None,
             },
         );
@@ -76,33 +76,25 @@ impl wacker_api::modules_server::Modules for Service {
 
         for (name, inner) in modules.iter_mut() {
             match inner.status {
-                Some(status) => reply.modules.push(wacker_api::Module {
-                    name: name.clone(),
-                    path: inner.path.clone(),
-                    status: i32::from(status),
-                }),
-                None => {
-                    let status = if inner.handler.is_finished() {
-                        match inner.receiver.try_recv() {
-                            Ok(err) => {
-                                inner.error = Option::from(err);
-                                wacker_api::ModuleStatus::Error
-                            }
-                            Err(TryRecvError::Empty) | Err(TryRecvError::Closed) => {
-                                wacker_api::ModuleStatus::Finished
-                            }
+                wacker_api::ModuleStatus::Running if inner.handler.is_finished() => {
+                    inner.status = match inner.receiver.try_recv() {
+                        Ok(err) => {
+                            inner.error = Option::from(err);
+                            wacker_api::ModuleStatus::Error
                         }
-                    } else {
-                        wacker_api::ModuleStatus::Running
+                        Err(TryRecvError::Empty) | Err(TryRecvError::Closed) => {
+                            wacker_api::ModuleStatus::Finished
+                        }
                     };
-                    inner.status = Option::from(status);
-                    reply.modules.push(wacker_api::Module {
-                        name: name.clone(),
-                        path: inner.path.clone(),
-                        status: i32::from(status),
-                    });
                 }
+                _ => {}
             };
+
+            reply.modules.push(wacker_api::Module {
+                name: name.clone(),
+                path: inner.path.clone(),
+                status: i32::from(inner.status),
+            });
         }
 
         Ok(Response::new(reply))
@@ -119,7 +111,7 @@ impl wacker_api::modules_server::Modules for Service {
             Some(module) => {
                 info!("Stop the module: {}", req.name);
                 module.handler.abort();
-                module.status = Option::from(wacker_api::ModuleStatus::Stopped);
+                module.status = wacker_api::ModuleStatus::Stopped;
                 Ok(Response::new(()))
             }
             None => Err(Status::not_found(format!("module {} not exists", req.name))),
