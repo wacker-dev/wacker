@@ -24,7 +24,8 @@ enum ModuleStatus {
 
 message Module {
   string name = 1;
-  ModuleStatus status = 2;
+  string path = 2;
+  ModuleStatus status = 3;
 }
 
 message ListResponse {

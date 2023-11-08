@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use tabled::{
-    settings::{Padding, Style},
+    settings::{object::Columns, Modify, Padding, Style, Width},
     Table, Tabled,
 };
 use tonic::transport::Channel;
@@ -15,6 +15,8 @@ pub struct ListCommand {}
 struct Module {
     #[tabled(rename = "NAME")]
     name: String,
+    #[tabled(rename = "PATH")]
+    path: String,
     #[tabled(rename = "STATUS")]
     status: &'static str,
 }
@@ -29,12 +31,18 @@ impl ListCommand {
         for res in response.into_inner().modules {
             modules.push(Module {
                 name: res.name,
+                path: res.path,
                 status: ModuleStatus::try_from(res.status).unwrap().as_str_name(),
             })
         }
 
         let mut table = Table::new(modules);
-        table.with(Padding::new(0, 2, 0, 0)).with(Style::blank());
+        table
+            .with(Padding::new(0, 2, 0, 0))
+            .with(Style::blank())
+            // the PATH column
+            .with(Modify::new(Columns::single(1)).with(Width::wrap(80).keep_words()));
+
         println!("{table}");
 
         Ok(())

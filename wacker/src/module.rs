@@ -14,6 +14,7 @@ pub struct Service {
 }
 
 struct InnerModule {
+    path: String,
     receiver: oneshot::Receiver<Error>,
     handler: task::JoinHandle<()>,
     status: Option<wacker_api::ModuleStatus>,
@@ -50,6 +51,7 @@ impl wacker_api::modules_server::Modules for Service {
         modules.insert(
             req.name,
             InnerModule {
+                path: req.path.clone(),
                 receiver,
                 handler: task::spawn(async move {
                     match run_module(env, &req.path).await {
@@ -76,6 +78,7 @@ impl wacker_api::modules_server::Modules for Service {
             match inner.status {
                 Some(status) => reply.modules.push(wacker_api::Module {
                     name: name.clone(),
+                    path: inner.path.clone(),
                     status: i32::from(status),
                 }),
                 None => {
@@ -95,6 +98,7 @@ impl wacker_api::modules_server::Modules for Service {
                     inner.status = Option::from(status);
                     reply.modules.push(wacker_api::Module {
                         name: name.clone(),
+                        path: inner.path.clone(),
                         status: i32::from(status),
                     });
                 }
