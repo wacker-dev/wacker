@@ -4,3 +4,7 @@ mod list;
 pub use self::list::*;
 mod stop;
 pub use self::stop::*;
+mod restart;
+pub use self::restart::*;
+mod delete;
+pub use self::delete::*;

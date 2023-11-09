@@ -40,7 +40,6 @@ impl wacker_api::modules_server::Modules for Service {
         let req = request.into_inner();
 
         let mut modules = self.modules.lock().unwrap();
-
         if modules.contains_key(&req.name) {
             return Ok(Response::new(()));
         }
@@ -110,11 +109,75 @@ impl wacker_api::modules_server::Modules for Service {
         match modules.get_mut(&req.name) {
             Some(module) => {
                 info!("Stop the module: {}", req.name);
-                module.handler.abort();
-                module.status = wacker_api::ModuleStatus::Stopped;
+                if !module.handler.is_finished() {
+                    module.handler.abort();
+                    module.status = wacker_api::ModuleStatus::Stopped;
+                }
                 Ok(Response::new(()))
             }
             None => Err(Status::not_found(format!("module {} not exists", req.name))),
+        }
+    }
+
+    async fn restart(
+        &self,
+        request: Request<wacker_api::RestartRequest>,
+    ) -> Result<Response<()>, Status> {
+        let req = request.into_inner();
+
+        let mut modules = self.modules.lock().unwrap();
+        match modules.get(&req.name) {
+            Some(module) => {
+                info!("Restart the module: {}", req.name);
+                if !module.handler.is_finished() {
+                    module.handler.abort();
+                }
+
+                let path = module.path.clone();
+                let (sender, receiver) = oneshot::channel();
+                let env = self.env.clone();
+                modules.insert(
+                    req.name,
+                    InnerModule {
+                        path: path.clone(),
+                        receiver,
+                        handler: task::spawn(async move {
+                            match run_module(env, &path).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    if let Err(_) = sender.send(e) {
+                                        warn!("the receiver dropped");
+                                    }
+                                }
+                            }
+                        }),
+                        status: wacker_api::ModuleStatus::Running,
+                        error: None,
+                    },
+                );
+                Ok(Response::new(()))
+            }
+            None => Err(Status::not_found(format!("module {} not exists", req.name))),
+        }
+    }
+
+    async fn delete(
+        &self,
+        request: Request<wacker_api::DeleteRequest>,
+    ) -> Result<Response<()>, Status> {
+        let req = request.into_inner();
+
+        let mut modules = self.modules.lock().unwrap();
+        match modules.get(&req.name) {
+            Some(module) => {
+                info!("Delete the module: {}", req.name);
+                if !module.handler.is_finished() {
+                    module.handler.abort();
+                }
+                modules.remove(&req.name);
+                Ok(Response::new(()))
+            }
+            None => Ok(Response::new(())),
         }
     }
 }
