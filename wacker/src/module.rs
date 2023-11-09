@@ -32,6 +32,21 @@ impl Service {
             modules: Arc::new(Mutex::new(modules)),
         })
     }
+
+    fn stop_and_remove(&self, name: &str) -> Option<String> {
+        let mut modules = self.modules.lock().unwrap();
+        match modules.get(name) {
+            Some(module) => {
+                let path = module.path.clone();
+                if !module.handler.is_finished() {
+                    module.handler.abort();
+                }
+                modules.remove(name);
+                Option::from(path)
+            }
+            None => None,
+        }
+    }
 }
 
 #[tonic::async_trait]
@@ -126,31 +141,19 @@ impl wacker_api::modules_server::Modules for Service {
         let req = request.into_inner();
         info!("Restart the module: {}", req.name);
 
-        let path: String;
-        {
-            let mut modules = self.modules.lock().unwrap();
-            match modules.get(&req.name) {
-                Some(module) => {
-                    if !module.handler.is_finished() {
-                        module.handler.abort();
+        match self.stop_and_remove(&req.name) {
+            Some(path) => {
+                self.run(
+                    wacker_api::RunRequest {
+                        name: req.name,
+                        path,
                     }
-                    path = module.path.clone();
-                    modules.remove(&req.name);
-                }
-                None => {
-                    return Err(Status::not_found(format!("module {} not exists", req.name)));
-                }
-            };
-        }
-
-        self.run(
-            wacker_api::RunRequest {
-                name: req.name,
-                path,
+                    .into_request(),
+                )
+                .await
             }
-            .into_request(),
-        )
-        .await
+            None => Err(Status::not_found(format!("module {} not exists", req.name))),
+        }
     }
 
     async fn delete(
@@ -158,18 +161,9 @@ impl wacker_api::modules_server::Modules for Service {
         request: Request<wacker_api::DeleteRequest>,
     ) -> Result<Response<()>, Status> {
         let req = request.into_inner();
+        info!("Delete the module: {}", req.name);
 
-        let mut modules = self.modules.lock().unwrap();
-        match modules.get(&req.name) {
-            Some(module) => {
-                info!("Delete the module: {}", req.name);
-                if !module.handler.is_finished() {
-                    module.handler.abort();
-                }
-                modules.remove(&req.name);
-                Ok(Response::new(()))
-            }
-            None => Ok(Response::new(())),
-        }
+        self.stop_and_remove(&req.name);
+        Ok(Response::new(()))
     }
 }
