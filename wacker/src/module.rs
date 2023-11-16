@@ -1,6 +1,6 @@
 use crate::run::{run_module, Environment};
 use anyhow::{Error, Result};
-use log::{info, warn};
+use log::{error, info, warn};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tokio::sync::{oneshot, oneshot::error::TryRecvError};
@@ -63,7 +63,7 @@ impl wacker_api::modules_server::Modules for Service {
         let (sender, receiver) = oneshot::channel();
         let env = self.env.clone();
         modules.insert(
-            req.name,
+            req.name.clone(),
             InnerModule {
                 path: req.path.clone(),
                 receiver,
@@ -71,6 +71,7 @@ impl wacker_api::modules_server::Modules for Service {
                     match run_module(env, &req.path).await {
                         Ok(_) => {}
                         Err(e) => {
+                            error!("running module {} error: {}", req.name, e);
                             if let Err(_) = sender.send(e) {
                                 warn!("the receiver dropped");
                             }
