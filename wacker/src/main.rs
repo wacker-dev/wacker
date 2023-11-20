@@ -3,8 +3,6 @@ mod run;
 
 use crate::module::Service;
 use anyhow::Result;
-use dirs;
-use env_logger;
 use log::info;
 use std::fs;
 use tokio::net::UnixListener;

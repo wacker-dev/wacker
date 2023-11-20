@@ -6,7 +6,6 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::{oneshot, oneshot::error::TryRecvError};
 use tokio::task;
 use tonic::{IntoRequest, Request, Response, Status};
-use wacker_api;
 
 pub struct Service {
     env: Environment,
@@ -72,7 +71,7 @@ impl wacker_api::modules_server::Modules for Service {
                         Ok(_) => {}
                         Err(e) => {
                             error!("running module {} error: {}", req.name, e);
-                            if let Err(_) = sender.send(e) {
+                            if sender.send(e).is_err() {
                                 warn!("the receiver dropped");
                             }
                         }
