@@ -17,3 +17,5 @@ dirs = "5.0"
 wacker-api = { path = "../wacker-api" }
 log = "0.4.20"
 env_logger = "0.10.0"
+cap-std = "2.0.0"
+chrono = "0.4.31"
