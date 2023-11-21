@@ -28,6 +28,8 @@ enum Subcommand {
     Restart(commands::RestartCommand),
     /// Delete a WebAssembly module
     Delete(commands::DeleteCommand),
+    /// Fetch the logs of a module
+    Logs(commands::LogsCommand),
 }
 
 impl Wacker {
@@ -49,6 +51,7 @@ impl Wacker {
             Subcommand::Stop(c) => c.execute(channel).await,
             Subcommand::Restart(c) => c.execute(channel).await,
             Subcommand::Delete(c) => c.execute(channel).await,
+            Subcommand::Logs(c) => c.execute(channel).await,
         }
     }
 }

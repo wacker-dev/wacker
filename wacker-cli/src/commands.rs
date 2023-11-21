@@ -8,3 +8,5 @@ mod restart;
 pub use self::restart::*;
 mod delete;
 pub use self::delete::*;
+mod logs;
+pub use self::logs::*;
