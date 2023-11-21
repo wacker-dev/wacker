@@ -13,8 +13,8 @@ pub struct ListCommand {}
 
 #[derive(Tabled)]
 struct Module {
-    #[tabled(rename = "NAME")]
-    name: String,
+    #[tabled(rename = "ID")]
+    id: String,
     #[tabled(rename = "PATH")]
     path: String,
     #[tabled(rename = "STATUS")]
@@ -30,7 +30,7 @@ impl ListCommand {
         let mut modules = vec![];
         for res in response.into_inner().modules {
             modules.push(Module {
-                name: res.name,
+                id: res.id,
                 path: res.path,
                 status: ModuleStatus::try_from(res.status).unwrap().as_str_name(),
             })

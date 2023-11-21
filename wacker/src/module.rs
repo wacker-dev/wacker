@@ -1,11 +1,11 @@
 use crate::run::{run_module, Environment};
 use anyhow::{bail, Error, Result};
-use chrono::prelude::Utc;
 use log::{error, info, warn};
+use rand::Rng;
 use std::collections::HashMap;
 use std::fs::{create_dir, OpenOptions};
 use std::io::{ErrorKind, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tokio::{
     sync::{oneshot, oneshot::error::TryRecvError},
@@ -46,15 +46,15 @@ impl Service {
         })
     }
 
-    fn stop_and_remove(&self, name: &str) -> Option<String> {
+    fn stop_and_remove(&self, id: &str) -> Option<String> {
         let mut modules = self.modules.lock().unwrap();
-        match modules.get(name) {
+        match modules.get(id) {
             Some(module) => {
                 let path = module.path.clone();
                 if !module.handler.is_finished() {
                     module.handler.abort();
                 }
-                modules.remove(name);
+                modules.remove(id);
                 Option::from(path)
             }
             None => None,
@@ -62,32 +62,51 @@ impl Service {
     }
 }
 
+fn generate_random_string(length: usize) -> String {
+    const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let mut rng = rand::thread_rng();
+
+    (0..length)
+        .map(|_| {
+            let index = rng.gen_range(0..CHARSET.len());
+            CHARSET[index] as char
+        })
+        .collect()
+}
+
 #[tonic::async_trait]
 impl wacker_api::modules_server::Modules for Service {
     async fn run(&self, request: Request<wacker_api::RunRequest>) -> Result<Response<()>, Status> {
         let req = request.into_inner();
 
-        let mut modules = self.modules.lock().unwrap();
-        if modules.contains_key(&req.name) {
-            return Ok(Response::new(()));
+        let file_path = Path::new(&req.path);
+        let name = file_path.file_stem();
+        if name.is_none() {
+            return Err(Status::internal(format!(
+                "failed to get file name in path {}",
+                req.path
+            )));
         }
+        let id = format!(
+            "{}-{}",
+            name.unwrap().to_str().unwrap(),
+            generate_random_string(7)
+        );
 
-        info!("Execute newly added module: {} ({})", req.name, req.path);
+        info!("Execute newly added module: {} ({})", id, req.path);
+
+        let mut modules = self.modules.lock().unwrap();
         let (sender, receiver) = oneshot::channel();
         let env = self.env.clone();
 
         let mut stdout = OpenOptions::new()
             .create(true)
             .append(true)
-            .open(self.home_dir.join(format!(
-                ".wacker/logs/{}-{}",
-                req.name,
-                Utc::now().format("%Y-%m-%d")
-            )))?;
+            .open(self.home_dir.join(".wacker/logs").join(id.clone()))?;
         let stdout_clone = stdout.try_clone()?;
 
         modules.insert(
-            req.name.clone(),
+            id.clone(),
             InnerModule {
                 path: req.path.clone(),
                 receiver,
@@ -95,7 +114,7 @@ impl wacker_api::modules_server::Modules for Service {
                     match run_module(env, &req.path, stdout_clone).await {
                         Ok(_) => {}
                         Err(e) => {
-                            error!("running module {} error: {}", req.name, e);
+                            error!("running module {} error: {}", id, e);
                             if let Err(file_err) = stdout.write_all(e.to_string().as_bytes()) {
                                 warn!("write error log failed: {}", file_err);
                             }
@@ -116,7 +135,7 @@ impl wacker_api::modules_server::Modules for Service {
         let mut reply = wacker_api::ListResponse { modules: vec![] };
         let mut modules = self.modules.lock().unwrap();
 
-        for (name, inner) in modules.iter_mut() {
+        for (id, inner) in modules.iter_mut() {
             match inner.status {
                 wacker_api::ModuleStatus::Running if inner.handler.is_finished() => {
                     inner.status = match inner.receiver.try_recv() {
@@ -133,7 +152,7 @@ impl wacker_api::modules_server::Modules for Service {
             };
 
             reply.modules.push(wacker_api::Module {
-                name: name.clone(),
+                id: id.clone(),
                 path: inner.path.clone(),
                 status: i32::from(inner.status),
             });
@@ -149,16 +168,16 @@ impl wacker_api::modules_server::Modules for Service {
         let req = request.into_inner();
 
         let mut modules = self.modules.lock().unwrap();
-        match modules.get_mut(&req.name) {
+        match modules.get_mut(&req.id) {
             Some(module) => {
-                info!("Stop the module: {}", req.name);
+                info!("Stop the module: {}", req.id);
                 if !module.handler.is_finished() {
                     module.handler.abort();
                     module.status = wacker_api::ModuleStatus::Stopped;
                 }
                 Ok(Response::new(()))
             }
-            None => Err(Status::not_found(format!("module {} not exists", req.name))),
+            None => Err(Status::not_found(format!("module {} not exists", req.id))),
         }
     }
 
@@ -167,20 +186,14 @@ impl wacker_api::modules_server::Modules for Service {
         request: Request<wacker_api::RestartRequest>,
     ) -> Result<Response<()>, Status> {
         let req = request.into_inner();
-        info!("Restart the module: {}", req.name);
+        info!("Restart the module: {}", req.id);
 
-        match self.stop_and_remove(&req.name) {
+        match self.stop_and_remove(&req.id) {
             Some(path) => {
-                self.run(
-                    wacker_api::RunRequest {
-                        name: req.name,
-                        path,
-                    }
-                    .into_request(),
-                )
-                .await
+                self.run(wacker_api::RunRequest { path }.into_request())
+                    .await
             }
-            None => Err(Status::not_found(format!("module {} not exists", req.name))),
+            None => Err(Status::not_found(format!("module {} not exists", req.id))),
         }
     }
 
@@ -189,9 +202,9 @@ impl wacker_api::modules_server::Modules for Service {
         request: Request<wacker_api::DeleteRequest>,
     ) -> Result<Response<()>, Status> {
         let req = request.into_inner();
-        info!("Delete the module: {}", req.name);
+        info!("Delete the module: {}", req.id);
 
-        self.stop_and_remove(&req.name);
+        self.stop_and_remove(&req.id);
         Ok(Response::new(()))
     }
 }

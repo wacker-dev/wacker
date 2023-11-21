@@ -6,15 +6,16 @@ use wacker_api::{modules_client::ModulesClient, DeleteRequest};
 #[derive(Parser, PartialEq)]
 #[structopt(name = "delete", aliases = &["rm"])]
 pub struct DeleteCommand {
+    /// Module ID
     #[arg(required = true)]
-    name: String,
+    id: String,
 }
 
 impl DeleteCommand {
     pub async fn execute(self, channel: Channel) -> Result<()> {
         let mut client = ModulesClient::new(channel);
 
-        let request = tonic::Request::new(DeleteRequest { name: self.name });
+        let request = tonic::Request::new(DeleteRequest { id: self.id });
         client.delete(request).await?;
 
         Ok(())
