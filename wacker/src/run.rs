@@ -1,8 +1,9 @@
 use anyhow::{anyhow, Error, Result};
+use std::fs::File;
 use std::sync::Arc;
 use wasi_common::I32Exit;
 use wasmtime::{Config, Engine, Linker, Module, OptLevel, Store};
-use wasmtime_wasi::{tokio::WasiCtxBuilder, WasiCtx};
+use wasmtime_wasi::{tokio, WasiCtx};
 
 #[derive(Clone)]
 pub struct Environment {
@@ -39,12 +40,21 @@ impl Environment {
     }
 }
 
-pub async fn run_module(env: Environment, path: &str) -> Result<()> {
+pub async fn run_module(env: Environment, path: &str, stdout: File) -> Result<()> {
+    let stderr = stdout.try_clone()?;
+
+    let wasi_stdout = cap_std::fs::File::from_std(stdout);
+    let wasi_stdout = tokio::File::from_cap_std(wasi_stdout);
+    let wasi_stderr = cap_std::fs::File::from_std(stderr);
+    let wasi_stderr = tokio::File::from_cap_std(wasi_stderr);
+
     // Create a WASI context and put it in a Store; all instances in the store
     // share this context. `WasiCtxBuilder` provides a number of ways to
     // configure what the target program will have access to.
-    let wasi = WasiCtxBuilder::new()
-        .inherit_stdio()
+    let wasi = tokio::WasiCtxBuilder::new()
+        .inherit_stdin()
+        .stdout(Box::new(wasi_stdout))
+        .stderr(Box::new(wasi_stderr))
         .inherit_args()?
         .build();
     let mut store = Store::new(&env.engine, wasi);

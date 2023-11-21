@@ -1,15 +1,22 @@
 use crate::run::{run_module, Environment};
-use anyhow::{Error, Result};
+use anyhow::{bail, Error, Result};
+use chrono::prelude::Utc;
 use log::{error, info, warn};
 use std::collections::HashMap;
+use std::fs::{create_dir, OpenOptions};
+use std::io::{ErrorKind, Write};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use tokio::sync::{oneshot, oneshot::error::TryRecvError};
-use tokio::task;
+use tokio::{
+    sync::{oneshot, oneshot::error::TryRecvError},
+    task,
+};
 use tonic::{IntoRequest, Request, Response, Status};
 
 pub struct Service {
     env: Environment,
     modules: Arc<Mutex<HashMap<String, InnerModule>>>,
+    home_dir: PathBuf,
 }
 
 struct InnerModule {
@@ -21,7 +28,13 @@ struct InnerModule {
 }
 
 impl Service {
-    pub fn new() -> Result<Self, Error> {
+    pub fn new(home_dir: PathBuf) -> Result<Self, Error> {
+        if let Err(e) = create_dir(home_dir.join(".wacker/logs")) {
+            if e.kind() != ErrorKind::AlreadyExists {
+                bail!("create logs dir failed: {}", e)
+            }
+        }
+
         // Create an environment shared by all wasm execution. This contains
         // the `Engine` we are executing.
         let env = Environment::new()?;
@@ -29,6 +42,7 @@ impl Service {
         Ok(Self {
             env,
             modules: Arc::new(Mutex::new(modules)),
+            home_dir,
         })
     }
 
@@ -61,16 +75,30 @@ impl wacker_api::modules_server::Modules for Service {
         info!("Execute newly added module: {} ({})", req.name, req.path);
         let (sender, receiver) = oneshot::channel();
         let env = self.env.clone();
+
+        let mut stdout = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(self.home_dir.join(format!(
+                ".wacker/logs/{}-{}",
+                req.name,
+                Utc::now().format("%Y-%m-%d")
+            )))?;
+        let stdout_clone = stdout.try_clone()?;
+
         modules.insert(
             req.name.clone(),
             InnerModule {
                 path: req.path.clone(),
                 receiver,
                 handler: task::spawn(async move {
-                    match run_module(env, &req.path).await {
+                    match run_module(env, &req.path, stdout_clone).await {
                         Ok(_) => {}
                         Err(e) => {
                             error!("running module {} error: {}", req.name, e);
+                            if let Err(file_err) = stdout.write_all(e.to_string().as_bytes()) {
+                                warn!("write error log failed: {}", file_err);
+                            }
                             if sender.send(e).is_err() {
                                 warn!("the receiver dropped");
                             }
