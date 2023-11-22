@@ -12,6 +12,7 @@ use tokio::{
     task,
 };
 use tonic::{IntoRequest, Request, Response, Status};
+use wacker_api::config::LOGS_DIR;
 
 pub struct Service {
     env: Environment,
@@ -29,7 +30,7 @@ struct InnerModule {
 
 impl Service {
     pub fn new(home_dir: PathBuf) -> Result<Self, Error> {
-        if let Err(e) = create_dir(home_dir.join(".wacker/logs")) {
+        if let Err(e) = create_dir(home_dir.join(LOGS_DIR)) {
             if e.kind() != ErrorKind::AlreadyExists {
                 bail!("create logs dir failed: {}", e)
             }
@@ -102,7 +103,7 @@ impl wacker_api::modules_server::Modules for Service {
         let mut stdout = OpenOptions::new()
             .create(true)
             .append(true)
-            .open(self.home_dir.join(".wacker/logs").join(id.clone()))?;
+            .open(self.home_dir.join(LOGS_DIR).join(id.clone()))?;
         let stdout_clone = stdout.try_clone()?;
 
         modules.insert(
@@ -204,7 +205,7 @@ impl wacker_api::modules_server::Modules for Service {
         let req = request.into_inner();
         info!("Delete the module: {}", req.id);
 
-        if let Err(err) = remove_file(self.home_dir.join(".wacker/logs").join(req.id.clone())) {
+        if let Err(err) = remove_file(self.home_dir.join(LOGS_DIR).join(req.id.clone())) {
             if err.kind() != ErrorKind::NotFound {
                 return Err(Status::internal(format!(
                     "failed to remove the log file for {}: {}",

@@ -5,6 +5,7 @@ use clap::Parser;
 use tokio::net::UnixStream;
 use tonic::transport::Endpoint;
 use tower::service_fn;
+use wacker_api::config::SOCK_PATH;
 
 #[derive(Parser)]
 #[command(name = "wacker")]
@@ -36,7 +37,7 @@ impl Wacker {
     /// Executes the command.
     pub async fn execute(self) -> Result<()> {
         let home_dir = dirs::home_dir().expect("Can't get home dir");
-        let path = home_dir.join(".wacker/wacker.sock");
+        let path = home_dir.join(SOCK_PATH);
 
         let channel = Endpoint::try_from("http://[::]:50051")?
             .connect_with_connector(service_fn(move |_| {

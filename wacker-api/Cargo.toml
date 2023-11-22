@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 tonic = "0.10"
 prost = "0.12"
+const_format = "0.2.32"
 
 [build-dependencies]
 tonic-build = "0.10"

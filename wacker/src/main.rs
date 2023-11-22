@@ -8,12 +8,12 @@ use std::fs;
 use tokio::net::UnixListener;
 use tokio_stream::wrappers::UnixListenerStream;
 use tonic::transport::Server;
-use wacker_api::modules_server::ModulesServer;
+use wacker_api::{config::SOCK_PATH, modules_server::ModulesServer};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let home_dir = dirs::home_dir().expect("Can't get home dir");
-    let binding = home_dir.join(".wacker/wacker.sock");
+    let binding = home_dir.join(SOCK_PATH);
     let path = binding.as_path();
     let parent_path = path.parent().unwrap();
 
