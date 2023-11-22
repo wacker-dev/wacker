@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use clap::Parser;
 use tabled::{
     settings::{object::Columns, Modify, Padding, Style, Width},
@@ -25,7 +25,10 @@ impl ListCommand {
     pub async fn execute(self, channel: Channel) -> Result<()> {
         let mut client = ModulesClient::new(channel);
         let request = tonic::Request::new(());
-        let response = client.list(request).await?;
+        let response = match client.list(request).await {
+            Ok(resp) => resp,
+            Err(err) => bail!(err.message().to_string()),
+        };
 
         let mut modules = vec![];
         for res in response.into_inner().modules {
