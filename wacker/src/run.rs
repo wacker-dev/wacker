@@ -59,9 +59,11 @@ pub async fn run_module(env: Environment, path: &str, stdout: File) -> Result<()
         .build();
     let mut store = Store::new(&env.engine, wasi);
 
+    // Put effectively unlimited fuel so it can run forever.
+    store.set_fuel(u64::MAX)?;
     // WebAssembly execution will be paused for an async yield every time it
-    // consumes 10000 fuel. Fuel will be refilled u64::MAX times.
-    store.out_of_fuel_async_yield(u64::MAX, 10000);
+    // consumes 10000 fuel.
+    store.fuel_async_yield_interval(Some(10000))?;
 
     // Instantiate our module with the imports we've created, and run it.
     let module = Module::from_file(&env.engine, path)?;
