@@ -3,7 +3,7 @@ use anyhow::{bail, Error, Result};
 use log::{error, info, warn};
 use rand::Rng;
 use std::collections::HashMap;
-use std::fs::{create_dir, OpenOptions};
+use std::fs::{create_dir, remove_file, OpenOptions};
 use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -203,6 +203,15 @@ impl wacker_api::modules_server::Modules for Service {
     ) -> Result<Response<()>, Status> {
         let req = request.into_inner();
         info!("Delete the module: {}", req.id);
+
+        if let Err(err) = remove_file(self.home_dir.join(".wacker/logs").join(req.id.clone())) {
+            if err.kind() != ErrorKind::NotFound {
+                return Err(Status::internal(format!(
+                    "failed to remove the log file for {}: {}",
+                    req.id, err
+                )));
+            }
+        }
 
         self.stop_and_remove(&req.id);
         Ok(Response::new(()))
