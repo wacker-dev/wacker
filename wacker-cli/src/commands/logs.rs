@@ -15,7 +15,7 @@ pub struct LogsCommand {
     follow: bool,
 
     /// Number of lines to show from the end of the logs
-    #[arg(short, long, value_name = "n")]
+    #[arg(short = 'n', long, value_name = "n")]
     tail: Option<u32>,
 }
 
