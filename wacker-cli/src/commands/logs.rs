@@ -38,13 +38,11 @@ impl LogsCommand {
             Ok(mut child) => {
                 let status = child.wait().expect("Failed to wait for child process");
                 if !status.success() {
-                    bail!("tail command failed with: {:?}", status)
+                    bail!("tail command failed with: {:?}", status);
                 }
                 Ok(())
             }
-            Err(err) => {
-                bail!("Error executing tail command: {}", err)
-            }
+            Err(err) => bail!("Error executing tail command: {}", err),
         }
     }
 }

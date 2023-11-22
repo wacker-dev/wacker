@@ -32,7 +32,7 @@ impl Service {
     pub fn new(home_dir: PathBuf) -> Result<Self, Error> {
         if let Err(e) = create_dir(home_dir.join(LOGS_DIR)) {
             if e.kind() != ErrorKind::AlreadyExists {
-                bail!("create logs dir failed: {}", e)
+                bail!("create logs dir failed: {}", e);
             }
         }
 
@@ -47,7 +47,7 @@ impl Service {
         })
     }
 
-    fn stop_and_remove(&self, id: &str) -> Option<String> {
+    fn stop_and_remove(&self, id: &str) -> Result<Option<String>> {
         let mut modules = self.modules.lock().unwrap();
         match modules.get(id) {
             Some(module) => {
@@ -55,10 +55,16 @@ impl Service {
                 if !module.handler.is_finished() {
                     module.handler.abort();
                 }
+
+                if let Err(err) = remove_file(self.home_dir.join(LOGS_DIR).join(id)) {
+                    if err.kind() != ErrorKind::NotFound {
+                        bail!("failed to remove the log file for {}: {}", id, err);
+                    }
+                }
                 modules.remove(id);
-                Option::from(path)
+                Ok(Option::from(path))
             }
-            None => None,
+            None => Ok(None),
         }
     }
 }
@@ -190,11 +196,14 @@ impl wacker_api::modules_server::Modules for Service {
         info!("Restart the module: {}", req.id);
 
         match self.stop_and_remove(&req.id) {
-            Some(path) => {
-                self.run(wacker_api::RunRequest { path }.into_request())
-                    .await
-            }
-            None => Err(Status::not_found(format!("module {} not exists", req.id))),
+            Ok(path) => match path {
+                Some(path) => {
+                    self.run(wacker_api::RunRequest { path }.into_request())
+                        .await
+                }
+                None => Err(Status::not_found(format!("module {} not exists", req.id))),
+            },
+            Err(err) => Err(Status::internal(format!("{}", err))),
         }
     }
 
@@ -205,16 +214,9 @@ impl wacker_api::modules_server::Modules for Service {
         let req = request.into_inner();
         info!("Delete the module: {}", req.id);
 
-        if let Err(err) = remove_file(self.home_dir.join(LOGS_DIR).join(req.id.clone())) {
-            if err.kind() != ErrorKind::NotFound {
-                return Err(Status::internal(format!(
-                    "failed to remove the log file for {}: {}",
-                    req.id, err
-                )));
-            }
+        match self.stop_and_remove(&req.id) {
+            Ok(_) => Ok(Response::new(())),
+            Err(err) => Err(Status::internal(format!("{}", err))),
         }
-
-        self.stop_and_remove(&req.id);
-        Ok(Response::new(()))
     }
 }
