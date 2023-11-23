@@ -4,6 +4,17 @@ Like Docker, but for WASM.
 
 ![CAUTION: Rustaceans are doing experiments](docs/caution.png)
 
+## Installation
+
+You can download binaries directly from the [Releases](https://github.com/iawia002/wacker/releases) page.
+
+Or you can install it using `cargo`:
+
+```
+cargo install wacker
+cargo install wacker-cli
+```
+
 ## Getting started
 
 Start the wacker daemon:
