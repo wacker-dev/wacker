@@ -51,7 +51,7 @@ jobs:
           for name in "${bins[@]}"; do
             file="$name-${{ steps.get-tag.outputs.id }}-${{ matrix.target }}.tar.gz"
             tar czf $file -C "target/${{ matrix.target }}/release" $name
-            echo $file >> $GITHUB_ENV
+            echo "$name=$file" >> $GITHUB_ENV
           done
       - name: Upload release archive
         uses: softprops/action-gh-release@v1
