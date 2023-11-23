@@ -5,3 +5,12 @@ members = [
   "wacker-api",
   "wacker-cli",
 ]
+
+[workspace.package]
+version = "0.1.0"
+authors = ["Xinzhao Xu"]
+edition = "2021"
+categories = ["wasm"]
+keywords = ["webassembly", "wasm", "wasi"]
+repository = "https://github.com/iawia002/wacker"
+license = "Apache-2.0"
