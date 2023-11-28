@@ -49,7 +49,7 @@ jobs:
         run: |
           bins=(wackerd wacker)
           for name in "${bins[@]}"; do
-            file="$name-${{ steps.get-tag.outputs.id }}-${{ matrix.target }}.tar.gz"
+            file="$name-${{ steps.get-tag.outputs.id }}-${{ matrix.build }}.tar.gz"
             tar czf $file -C "target/${{ matrix.target }}/release" $name
             echo "$name=$file" >> $GITHUB_ENV
           done
