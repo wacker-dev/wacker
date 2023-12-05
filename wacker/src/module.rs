@@ -2,6 +2,7 @@ use crate::run::{run_module, Environment};
 use anyhow::{bail, Error, Result};
 use log::{error, info, warn};
 use rand::Rng;
+use sled::Db;
 use std::collections::HashMap;
 use std::fs::{create_dir, remove_file, OpenOptions};
 use std::io::{ErrorKind, Write};
@@ -12,9 +13,10 @@ use tokio::{
     task,
 };
 use tonic::{IntoRequest, Request, Response, Status};
-use wacker_api::config::LOGS_DIR;
+use wacker_api::config::{DB_PATH, LOGS_DIR};
 
 pub struct Service {
+    db: Db,
     env: Environment,
     modules: Arc<Mutex<HashMap<String, InnerModule>>>,
     home_dir: PathBuf,
@@ -29,22 +31,78 @@ struct InnerModule {
 }
 
 impl Service {
-    pub fn new(home_dir: PathBuf) -> Result<Self, Error> {
+    pub async fn new(home_dir: PathBuf) -> Result<Self, Error> {
         if let Err(e) = create_dir(home_dir.join(LOGS_DIR)) {
             if e.kind() != ErrorKind::AlreadyExists {
                 bail!("create logs dir failed: {}", e);
             }
         }
 
+        let db = sled::open(home_dir.join(DB_PATH))?;
         // Create an environment shared by all wasm execution. This contains
         // the `Engine` we are executing.
         let env = Environment::new()?;
         let modules = HashMap::new();
-        Ok(Self {
+
+        let service = Self {
+            db,
             env,
             modules: Arc::new(Mutex::new(modules)),
             home_dir,
-        })
+        };
+        service.load_from_db().await?;
+
+        Ok(service)
+    }
+
+    async fn load_from_db(&self) -> Result<()> {
+        for data in self.db.iter() {
+            let (id, path) = data?;
+            self.run_inner(
+                String::from_utf8(id.to_vec())?,
+                String::from_utf8(path.to_vec())?,
+            )
+            .await?;
+        }
+        Ok(())
+    }
+
+    async fn run_inner(&self, id: String, path: String) -> Result<()> {
+        let mut modules = self.modules.lock().unwrap();
+        let (sender, receiver) = oneshot::channel();
+        let env = self.env.clone();
+
+        let mut stdout = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(self.home_dir.join(LOGS_DIR).join(id.clone()))?;
+        let stdout_clone = stdout.try_clone()?;
+
+        modules.insert(
+            id.clone(),
+            InnerModule {
+                path: path.clone(),
+                receiver,
+                handler: task::spawn(async move {
+                    match run_module(env, path.clone().as_str(), stdout_clone).await {
+                        Ok(_) => {}
+                        Err(e) => {
+                            error!("running module {} error: {}", id, e);
+                            if let Err(file_err) = stdout.write_all(e.to_string().as_bytes()) {
+                                warn!("write error log failed: {}", file_err);
+                            }
+                            if sender.send(e).is_err() {
+                                warn!("the receiver dropped");
+                            }
+                        }
+                    }
+                }),
+                status: wacker_api::ModuleStatus::Running,
+                error: None,
+            },
+        );
+
+        Ok(())
     }
 
     fn stop_and_remove(&self, id: &str) -> Result<Option<String>> {
@@ -61,6 +119,8 @@ impl Service {
                         bail!("failed to remove the log file for {}: {}", id, err);
                     }
                 }
+
+                self.db.remove(id)?;
                 modules.remove(id);
                 Ok(Option::from(path))
             }
@@ -102,39 +162,12 @@ impl wacker_api::modules_server::Modules for Service {
 
         info!("Execute newly added module: {} ({})", id, req.path);
 
-        let mut modules = self.modules.lock().unwrap();
-        let (sender, receiver) = oneshot::channel();
-        let env = self.env.clone();
-
-        let mut stdout = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(self.home_dir.join(LOGS_DIR).join(id.clone()))?;
-        let stdout_clone = stdout.try_clone()?;
-
-        modules.insert(
-            id.clone(),
-            InnerModule {
-                path: req.path.clone(),
-                receiver,
-                handler: task::spawn(async move {
-                    match run_module(env, &req.path, stdout_clone).await {
-                        Ok(_) => {}
-                        Err(e) => {
-                            error!("running module {} error: {}", id, e);
-                            if let Err(file_err) = stdout.write_all(e.to_string().as_bytes()) {
-                                warn!("write error log failed: {}", file_err);
-                            }
-                            if sender.send(e).is_err() {
-                                warn!("the receiver dropped");
-                            }
-                        }
-                    }
-                }),
-                status: wacker_api::ModuleStatus::Running,
-                error: None,
-            },
-        );
+        if let Err(err) = self.db.insert(id.as_str(), req.path.as_str()) {
+            return Err(Status::internal(err.to_string()));
+        }
+        if let Err(err) = self.run_inner(id, req.path).await {
+            return Err(Status::internal(err.to_string()));
+        }
         Ok(Response::new(()))
     }
 
