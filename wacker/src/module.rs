@@ -12,7 +12,7 @@ use tokio::{
     sync::{oneshot, oneshot::error::TryRecvError},
     task,
 };
-use tonic::{IntoRequest, Request, Response, Status};
+use tonic::{Request, Response, Status};
 use wacker_api::config::{DB_PATH, LOGS_DIR};
 
 pub struct Service {
@@ -104,29 +104,6 @@ impl Service {
 
         Ok(())
     }
-
-    fn stop_and_remove(&self, id: &str) -> Result<Option<String>> {
-        let mut modules = self.modules.lock().unwrap();
-        match modules.get(id) {
-            Some(module) => {
-                let path = module.path.clone();
-                if !module.handler.is_finished() {
-                    module.handler.abort();
-                }
-
-                if let Err(err) = remove_file(self.home_dir.join(LOGS_DIR).join(id)) {
-                    if err.kind() != ErrorKind::NotFound {
-                        bail!("failed to remove the log file for {}: {}", id, err);
-                    }
-                }
-
-                self.db.remove(id)?;
-                modules.remove(id);
-                Ok(Option::from(path))
-            }
-            None => Ok(None),
-        }
-    }
 }
 
 fn generate_random_string(length: usize) -> String {
@@ -208,7 +185,7 @@ impl wacker_api::modules_server::Modules for Service {
         let req = request.into_inner();
 
         let mut modules = self.modules.lock().unwrap();
-        match modules.get_mut(&req.id) {
+        match modules.get_mut(req.id.as_str()) {
             Some(module) => {
                 info!("Stop the module: {}", req.id);
                 if !module.handler.is_finished() {
@@ -228,16 +205,25 @@ impl wacker_api::modules_server::Modules for Service {
         let req = request.into_inner();
         info!("Restart the module: {}", req.id);
 
-        match self.stop_and_remove(&req.id) {
-            Ok(path) => match path {
-                Some(path) => {
-                    self.run(wacker_api::RunRequest { path }.into_request())
-                        .await
-                }
-                None => Err(Status::not_found(format!("module {} not exists", req.id))),
-            },
-            Err(err) => Err(Status::internal(format!("{}", err))),
+        let path = {
+            let modules = self.modules.lock().unwrap();
+            let module = modules.get(req.id.as_str());
+            if module.is_none() {
+                return Err(Status::not_found(format!("module {} not exists", req.id)));
+            }
+
+            let module = module.unwrap();
+            if !module.handler.is_finished() {
+                module.handler.abort();
+            }
+            module.path.clone()
+        };
+
+        if let Err(err) = self.run_inner(req.id.clone(), path).await {
+            return Err(Status::internal(err.to_string()));
         }
+
+        Ok(Response::new(()))
     }
 
     async fn delete(
@@ -247,9 +233,28 @@ impl wacker_api::modules_server::Modules for Service {
         let req = request.into_inner();
         info!("Delete the module: {}", req.id);
 
-        match self.stop_and_remove(&req.id) {
-            Ok(_) => Ok(Response::new(())),
-            Err(err) => Err(Status::internal(format!("{}", err))),
+        let mut modules = self.modules.lock().unwrap();
+        if let Some(module) = modules.get(req.id.as_str()) {
+            if !module.handler.is_finished() {
+                module.handler.abort();
+            }
+
+            if let Err(err) = remove_file(self.home_dir.join(LOGS_DIR).join(req.id.clone())) {
+                if err.kind() != ErrorKind::NotFound {
+                    return Err(Status::internal(format!(
+                        "failed to remove the log file for {}: {}",
+                        req.id.clone(),
+                        err
+                    )));
+                }
+            }
+
+            if let Err(err) = self.db.remove(req.id.clone()) {
+                return Err(Status::internal(err.to_string()));
+            }
+            modules.remove(req.id.clone().as_str());
         }
+
+        Ok(Response::new(()))
     }
 }
