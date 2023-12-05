@@ -27,7 +27,7 @@ async fn main() -> Result<()> {
     let uds = UnixListener::bind(path)?;
     let uds_stream = UnixListenerStream::new(uds);
 
-    let inner = Service::new(home_dir)?;
+    let inner = Service::new(home_dir).await?;
 
     let env = env_logger::Env::default()
         .filter_or("LOG_LEVEL", "info")
