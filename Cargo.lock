@@ -2219,7 +2219,7 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "wacker"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "cap-std",
@@ -2239,7 +2239,7 @@ dependencies = [
 
 [[package]]
 name = "wacker-api"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "const_format",
  "prost",
@@ -2249,7 +2249,7 @@ dependencies = [
 
 [[package]]
 name = "wacker-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "clap",

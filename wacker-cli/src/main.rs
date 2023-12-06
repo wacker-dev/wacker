@@ -10,7 +10,7 @@ use wacker_api::config::SOCK_PATH;
 #[derive(Parser)]
 #[command(name = "wacker")]
 #[command(author = "ia")]
-#[command(version = "0.1.0")]
+#[command(version = "0.1.1")]
 #[command(about = "wacker client", long_about = None)]
 struct Wacker {
     #[clap(subcommand)]
