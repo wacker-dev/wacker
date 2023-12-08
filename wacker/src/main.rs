@@ -2,7 +2,7 @@ mod module;
 mod run;
 
 use crate::module::Service;
-use anyhow::Result;
+use anyhow::{bail, Result};
 use clap::Parser;
 use log::info;
 use std::fs;
@@ -31,7 +31,7 @@ impl WackerDaemon {
             fs::create_dir_all(parent_path)?;
         }
         if path.exists() {
-            fs::remove_file(path)?;
+            bail!("wackerd socket file exists, is wackerd already running?");
         }
 
         let uds = UnixListener::bind(path)?;
