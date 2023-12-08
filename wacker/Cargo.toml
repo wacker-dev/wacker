@@ -17,7 +17,7 @@ path = "src/main.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-wacker-api = { path = "../wacker-api", version = "0.1.1" }
+wacker-api = { path = "../wacker-api", version = "0.1.3" }
 anyhow = "1.0.75"
 tokio = { version = "1.34.0", features = ["rt", "rt-multi-thread", "macros", "signal"] }
 tokio-stream = { version = "0.1.14", features = ["net"] }
