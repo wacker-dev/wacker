@@ -9,9 +9,7 @@ use wacker_api::config::SOCK_PATH;
 
 #[derive(Parser)]
 #[command(name = "wacker")]
-#[command(author = "ia")]
-#[command(version = "0.1.1")]
-#[command(about = "wacker client", long_about = None)]
+#[command(author, version, about, long_about = None)]
 struct Wacker {
     #[clap(subcommand)]
     subcommand: Subcommand,
@@ -35,7 +33,7 @@ enum Subcommand {
 
 impl Wacker {
     /// Executes the command.
-    pub async fn execute(self) -> Result<()> {
+    async fn execute(self) -> Result<()> {
         let home_dir = dirs::home_dir().expect("Can't get home dir");
         let path = home_dir.join(SOCK_PATH);
 
@@ -59,5 +57,5 @@ impl Wacker {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    return Wacker::parse().execute().await;
+    Wacker::parse().execute().await
 }

@@ -13,7 +13,7 @@ use tokio::{
     task,
 };
 use tonic::{Request, Response, Status};
-use wacker_api::config::{DB_PATH, LOGS_DIR};
+use wacker_api::config::LOGS_DIR;
 
 pub struct Service {
     db: Db,
@@ -31,14 +31,13 @@ struct InnerModule {
 }
 
 impl Service {
-    pub async fn new(home_dir: PathBuf) -> Result<Self, Error> {
+    pub async fn new(home_dir: PathBuf, db: Db) -> Result<Self, Error> {
         if let Err(e) = create_dir(home_dir.join(LOGS_DIR)) {
             if e.kind() != ErrorKind::AlreadyExists {
                 bail!("create logs dir failed: {}", e);
             }
         }
 
-        let db = sled::open(home_dir.join(DB_PATH))?;
         // Create an environment shared by all wasm execution. This contains
         // the `Engine` we are executing.
         let env = Environment::new()?;
