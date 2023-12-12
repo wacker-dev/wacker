@@ -3,8 +3,7 @@ use clap::Parser;
 use tonic::transport::Channel;
 use wacker_api::{modules_client::ModulesClient, StopRequest};
 
-#[derive(Parser, PartialEq)]
-#[structopt(name = "stop")]
+#[derive(Parser)]
 pub struct StopCommand {
     /// Module ID
     #[arg(required = true)]

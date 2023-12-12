@@ -3,8 +3,7 @@ use clap::Parser;
 use tonic::transport::Channel;
 use wacker_api::{modules_client::ModulesClient, RestartRequest};
 
-#[derive(Parser, PartialEq)]
-#[structopt(name = "restart")]
+#[derive(Parser)]
 pub struct RestartCommand {
     /// Module ID
     #[arg(required = true)]

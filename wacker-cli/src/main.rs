@@ -11,23 +11,26 @@ use wacker_api::config::SOCK_PATH;
 #[command(name = "wacker")]
 #[command(author, version, about, long_about = None)]
 struct Wacker {
-    #[clap(subcommand)]
+    #[command(subcommand)]
     subcommand: Subcommand,
 }
 
-#[derive(Parser, PartialEq)]
+#[derive(Parser)]
 enum Subcommand {
     /// Runs a WebAssembly module
     Run(commands::RunCommand),
-    /// List running WebAssembly modules
+    /// Lists running WebAssembly modules
+    #[command(visible_alias = "ps")]
     List(commands::ListCommand),
     /// Stops a WebAssembly module
     Stop(commands::StopCommand),
-    /// Restart a WebAssembly module
+    /// Restarts a WebAssembly module
     Restart(commands::RestartCommand),
-    /// Delete a WebAssembly module
+    /// Deletes a WebAssembly module
+    #[command(visible_alias = "rm")]
     Delete(commands::DeleteCommand),
-    /// Fetch the logs of a module
+    /// Fetches logs of a module
+    #[command(visible_alias = "log")]
     Logs(commands::LogsCommand),
 }
 
