@@ -3,8 +3,7 @@ use clap::Parser;
 use tonic::transport::Channel;
 use wacker_api::{modules_client::ModulesClient, RunRequest};
 
-#[derive(Parser, PartialEq)]
-#[structopt(name = "run")]
+#[derive(Parser)]
 pub struct RunCommand {
     /// Module file path
     #[arg(required = true)]

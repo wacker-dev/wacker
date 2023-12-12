@@ -7,8 +7,7 @@ use tabled::{
 use tonic::transport::Channel;
 use wacker_api::{modules_client::ModulesClient, ModuleStatus};
 
-#[derive(Parser, PartialEq)]
-#[structopt(name = "list", aliases = &["ps"])]
+#[derive(Parser)]
 pub struct ListCommand {}
 
 #[derive(Tabled)]

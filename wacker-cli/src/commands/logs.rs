@@ -4,8 +4,7 @@ use std::process::Command;
 use tonic::transport::Channel;
 use wacker_api::config::LOGS_DIR;
 
-#[derive(Parser, PartialEq)]
-#[structopt(name = "logs", aliases = &["log"])]
+#[derive(Parser)]
 pub struct LogsCommand {
     /// Module ID
     #[arg(required = true)]

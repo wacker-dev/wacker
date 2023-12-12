@@ -3,8 +3,7 @@ use clap::Parser;
 use tonic::transport::Channel;
 use wacker_api::{modules_client::ModulesClient, DeleteRequest};
 
-#[derive(Parser, PartialEq)]
-#[structopt(name = "delete", aliases = &["rm"])]
+#[derive(Parser)]
 pub struct DeleteCommand {
     /// Module ID
     #[arg(required = true)]
