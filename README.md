@@ -74,11 +74,11 @@ Usage: wacker <COMMAND>
 
 Commands:
   run      Runs a WebAssembly module
-  list     List running WebAssembly modules
+  list     Lists running WebAssembly modules [aliases: ps]
   stop     Stops a WebAssembly module
-  restart  Restart a WebAssembly module
-  delete   Delete a WebAssembly module
-  logs     Fetch the logs of a module
+  restart  Restarts a WebAssembly module
+  delete   Deletes a WebAssembly module [aliases: rm]
+  logs     Fetches logs of a module [aliases: log]
   help     Print this message or the help of the given subcommand(s)
 
 Options:
