@@ -1,4 +1,4 @@
-use crate::run::{run_module, Environment};
+use crate::runtime::Engine;
 use anyhow::{bail, Error, Result};
 use log::{error, info, warn};
 use rand::Rng;
@@ -15,9 +15,9 @@ use tokio::{
 use tonic::{Request, Response, Status};
 use wacker_api::config::LOGS_DIR;
 
-pub struct Service {
+pub struct Server {
     db: Db,
-    env: Environment,
+    engine: Engine,
     modules: Arc<Mutex<HashMap<String, InnerModule>>>,
     home_dir: PathBuf,
 }
@@ -30,7 +30,7 @@ struct InnerModule {
     error: Option<Error>,
 }
 
-impl Service {
+impl Server {
     pub async fn new(home_dir: PathBuf, db: Db) -> Result<Self, Error> {
         if let Err(e) = create_dir(home_dir.join(LOGS_DIR)) {
             if e.kind() != ErrorKind::AlreadyExists {
@@ -40,12 +40,12 @@ impl Service {
 
         // Create an environment shared by all wasm execution. This contains
         // the `Engine` we are executing.
-        let env = Environment::new()?;
+        let engine = Engine::new()?;
         let modules = HashMap::new();
 
         let service = Self {
             db,
-            env,
+            engine,
             modules: Arc::new(Mutex::new(modules)),
             home_dir,
         };
@@ -69,7 +69,7 @@ impl Service {
     async fn run_inner(&self, id: String, path: String) -> Result<()> {
         let mut modules = self.modules.lock().unwrap();
         let (sender, receiver) = oneshot::channel();
-        let env = self.env.clone();
+        let engine = self.engine.clone();
 
         let mut stdout = OpenOptions::new()
             .create(true)
@@ -83,7 +83,7 @@ impl Service {
                 path: path.clone(),
                 receiver,
                 handler: task::spawn(async move {
-                    match run_module(env, path.clone().as_str(), stdout_clone).await {
+                    match engine.run_wasi(path.clone().as_str(), stdout_clone).await {
                         Ok(_) => {}
                         Err(e) => {
                             error!("running module {} error: {}", id, e);
@@ -118,7 +118,7 @@ fn generate_random_string(length: usize) -> String {
 }
 
 #[tonic::async_trait]
-impl wacker_api::modules_server::Modules for Service {
+impl wacker_api::modules_server::Modules for Server {
     async fn run(&self, request: Request<wacker_api::RunRequest>) -> Result<Response<()>, Status> {
         let req = request.into_inner();
 
