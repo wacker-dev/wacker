@@ -1,7 +1,7 @@
-mod module;
-mod run;
+mod runtime;
+mod server;
 
-use crate::module::Service;
+use crate::server::Server;
 use anyhow::{bail, Result};
 use clap::Parser;
 use log::info;
@@ -9,7 +9,6 @@ use std::fs;
 use tokio::net::UnixListener;
 use tokio::signal;
 use tokio_stream::wrappers::UnixListenerStream;
-use tonic::transport::Server;
 use wacker_api::{
     config::{DB_PATH, SOCK_PATH},
     modules_server::ModulesServer,
@@ -38,7 +37,7 @@ impl WackerDaemon {
         let uds_stream = UnixListenerStream::new(uds);
 
         let db = sled::open(home_dir.join(DB_PATH))?;
-        let inner = Service::new(home_dir, db.clone()).await?;
+        let inner = Server::new(home_dir, db.clone()).await?;
 
         let env = env_logger::Env::default()
             .filter_or("LOG_LEVEL", "info")
@@ -46,7 +45,7 @@ impl WackerDaemon {
         env_logger::init_from_env(env);
 
         info!("server listening on {:?}", path);
-        Server::builder()
+        tonic::transport::Server::builder()
             .add_service(ModulesServer::new(inner))
             .serve_with_incoming_shutdown(uds_stream, async {
                 signal::ctrl_c().await.expect("failed to listen for event");
