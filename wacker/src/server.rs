@@ -1,7 +1,7 @@
 use crate::runtime::Engine;
+use crate::utils::generate_random_string;
 use anyhow::{bail, Error, Result};
 use log::{error, info, warn};
-use rand::Rng;
 use sled::Db;
 use std::collections::HashMap;
 use std::fs::{create_dir, remove_file, OpenOptions};
@@ -103,18 +103,6 @@ impl Server {
 
         Ok(())
     }
-}
-
-fn generate_random_string(length: usize) -> String {
-    const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    let mut rng = rand::thread_rng();
-
-    (0..length)
-        .map(|_| {
-            let index = rng.gen_range(0..CHARSET.len());
-            CHARSET[index] as char
-        })
-        .collect()
 }
 
 #[tonic::async_trait]
