@@ -21,10 +21,8 @@ struct Module {
 }
 
 impl ListCommand {
-    pub async fn execute(self, channel: Channel) -> Result<()> {
-        let mut client = ModulesClient::new(channel);
-        let request = tonic::Request::new(());
-        let response = match client.list(request).await {
+    pub async fn execute(self, mut client: ModulesClient<Channel>) -> Result<()> {
+        let response = match client.list(()).await {
             Ok(resp) => resp,
             Err(err) => bail!(err.message().to_string()),
         };
