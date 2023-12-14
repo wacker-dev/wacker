@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use clap::Parser;
 use tonic::transport::Channel;
-use wacker_api::{modules_client::ModulesClient, DeleteRequest};
+use wacker::{DeleteRequest, ModulesClient};
 
 #[derive(Parser)]
 pub struct DeleteCommand {

@@ -5,7 +5,7 @@ use tabled::{
     Table, Tabled,
 };
 use tonic::transport::Channel;
-use wacker_api::{modules_client::ModulesClient, ModuleStatus};
+use wacker::{ModuleStatus, ModulesClient};
 
 #[derive(Parser)]
 pub struct ListCommand {}

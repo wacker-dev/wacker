@@ -2244,32 +2244,20 @@ dependencies = [
  "anyhow",
  "cap-std",
  "clap",
+ "const_format",
  "dirs 5.0.1",
- "env_logger",
  "log",
+ "prost",
  "rand",
  "sled",
  "tokio",
  "tokio-stream",
  "tonic",
- "wacker-api",
+ "tonic-build",
+ "tower",
  "wasi-common",
  "wasmtime",
  "wasmtime-wasi",
-]
-
-[[package]]
-name = "wacker-api"
-version = "0.1.3"
-dependencies = [
- "anyhow",
- "const_format",
- "dirs 5.0.1",
- "prost",
- "tokio",
- "tonic",
- "tonic-build",
- "tower",
 ]
 
 [[package]]
@@ -2278,11 +2266,24 @@ version = "0.1.3"
 dependencies = [
  "anyhow",
  "clap",
- "dirs 5.0.1",
  "tabled",
  "tokio",
  "tonic",
- "wacker-api",
+ "wacker",
+]
+
+[[package]]
+name = "wacker-daemon"
+version = "0.1.3"
+dependencies = [
+ "anyhow",
+ "clap",
+ "env_logger",
+ "log",
+ "tokio",
+ "tokio-stream",
+ "tonic",
+ "wacker",
 ]
 
 [[package]]

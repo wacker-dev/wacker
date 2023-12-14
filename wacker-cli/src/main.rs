@@ -2,7 +2,7 @@ mod commands;
 
 use anyhow::Result;
 use clap::Parser;
-use wacker_api::new_client;
+use wacker::new_client;
 
 #[derive(Parser)]
 #[command(name = "wacker")]

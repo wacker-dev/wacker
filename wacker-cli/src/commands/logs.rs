@@ -1,7 +1,7 @@
 use anyhow::{bail, Result};
 use clap::Parser;
 use std::process::Command;
-use wacker_api::config::LOGS_DIR;
+use wacker::Config;
 
 #[derive(Parser)]
 pub struct LogsCommand {
@@ -21,8 +21,8 @@ pub struct LogsCommand {
 impl LogsCommand {
     /// Executes the command.
     pub async fn execute(self) -> Result<()> {
-        let home_dir = dirs::home_dir().expect("Can't get home dir");
-        let path = home_dir.join(LOGS_DIR).join(self.id);
+        let config = Config::new()?;
+        let path = config.logs_dir.join(self.id);
         let mut tail_args = vec![];
         if self.follow {
             tail_args.push("-f".to_string());
