@@ -2,10 +2,7 @@ mod commands;
 
 use anyhow::Result;
 use clap::Parser;
-use tokio::net::UnixStream;
-use tonic::transport::Endpoint;
-use tower::service_fn;
-use wacker_api::config::SOCK_PATH;
+use wacker_api::new_client;
 
 #[derive(Parser)]
 #[command(name = "wacker")]
@@ -37,23 +34,15 @@ enum Subcommand {
 impl Wacker {
     /// Executes the command.
     async fn execute(self) -> Result<()> {
-        let home_dir = dirs::home_dir().expect("Can't get home dir");
-        let path = home_dir.join(SOCK_PATH);
-
-        let channel = Endpoint::try_from("http://[::]:50051")?
-            .connect_with_connector(service_fn(move |_| {
-                // Connect to a Uds socket
-                UnixStream::connect(path.to_str().unwrap().to_string())
-            }))
-            .await?;
+        let client = new_client().await?;
 
         match self.subcommand {
-            Subcommand::Run(c) => c.execute(channel).await,
-            Subcommand::List(c) => c.execute(channel).await,
-            Subcommand::Stop(c) => c.execute(channel).await,
-            Subcommand::Restart(c) => c.execute(channel).await,
-            Subcommand::Delete(c) => c.execute(channel).await,
-            Subcommand::Logs(c) => c.execute(channel).await,
+            Subcommand::Run(c) => c.execute(client).await,
+            Subcommand::List(c) => c.execute(client).await,
+            Subcommand::Stop(c) => c.execute(client).await,
+            Subcommand::Restart(c) => c.execute(client).await,
+            Subcommand::Delete(c) => c.execute(client).await,
+            Subcommand::Logs(c) => c.execute().await,
         }
     }
 }

@@ -12,12 +12,13 @@ pub struct RunCommand {
 
 impl RunCommand {
     /// Executes the command.
-    pub async fn execute(self, channel: Channel) -> Result<()> {
-        let mut client = ModulesClient::new(channel);
-        let request = tonic::Request::new(RunRequest {
-            path: self.path.to_string(),
-        });
-        match client.run(request).await {
+    pub async fn execute(self, mut client: ModulesClient<Channel>) -> Result<()> {
+        match client
+            .run(RunRequest {
+                path: self.path.to_string(),
+            })
+            .await
+        {
             Ok(_) => Ok(()),
             Err(err) => Err(anyhow!(err.message().to_string())),
         }
