@@ -11,7 +11,7 @@ You can download binaries directly from the [Releases](https://github.com/iawia0
 Or you can install it using `cargo`:
 
 ```
-cargo install wacker
+cargo install wacker-daemon
 cargo install wacker-cli
 ```
 

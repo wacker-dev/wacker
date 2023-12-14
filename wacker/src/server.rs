@@ -1,43 +1,40 @@
+use crate::config::*;
+use crate::module::*;
 use crate::runtime::Engine;
 use crate::utils::generate_random_string;
-use anyhow::{bail, Error, Result};
+use anyhow::{Error, Result};
 use log::{error, info, warn};
 use sled::Db;
 use std::collections::HashMap;
-use std::fs::{create_dir, remove_file, OpenOptions};
+use std::fs::{remove_file, OpenOptions};
 use std::io::{ErrorKind, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 use tokio::{
     sync::{oneshot, oneshot::error::TryRecvError},
     task,
 };
 use tonic::{Request, Response, Status};
-use wacker_api::config::LOGS_DIR;
 
+#[derive(Clone)]
 pub struct Server {
     db: Db,
     engine: Engine,
     modules: Arc<Mutex<HashMap<String, InnerModule>>>,
-    home_dir: PathBuf,
+    config: Config,
 }
 
 struct InnerModule {
     path: String,
     receiver: oneshot::Receiver<Error>,
     handler: task::JoinHandle<()>,
-    status: wacker_api::ModuleStatus,
+    status: ModuleStatus,
     error: Option<Error>,
 }
 
 impl Server {
-    pub async fn new(home_dir: PathBuf, db: Db) -> Result<Self, Error> {
-        if let Err(e) = create_dir(home_dir.join(LOGS_DIR)) {
-            if e.kind() != ErrorKind::AlreadyExists {
-                bail!("create logs dir failed: {}", e);
-            }
-        }
-
+    pub async fn new(config: Config) -> Result<Self, Error> {
+        let db = sled::open(config.db_path.clone())?;
         // Create an environment shared by all wasm execution. This contains
         // the `Engine` we are executing.
         let engine = Engine::new()?;
@@ -47,11 +44,15 @@ impl Server {
             db,
             engine,
             modules: Arc::new(Mutex::new(modules)),
-            home_dir,
+            config,
         };
         service.load_from_db().await?;
 
         Ok(service)
+    }
+
+    pub async fn flush_db(&self) -> sled::Result<usize> {
+        self.db.flush_async().await
     }
 
     async fn load_from_db(&self) -> Result<()> {
@@ -74,7 +75,7 @@ impl Server {
         let mut stdout = OpenOptions::new()
             .create(true)
             .append(true)
-            .open(self.home_dir.join(LOGS_DIR).join(id.clone()))?;
+            .open(self.config.logs_dir.join(id.clone()))?;
         let stdout_clone = stdout.try_clone()?;
 
         modules.insert(
@@ -96,7 +97,7 @@ impl Server {
                         }
                     }
                 }),
-                status: wacker_api::ModuleStatus::Running,
+                status: ModuleStatus::Running,
                 error: None,
             },
         );
@@ -106,8 +107,8 @@ impl Server {
 }
 
 #[tonic::async_trait]
-impl wacker_api::modules_server::Modules for Server {
-    async fn run(&self, request: Request<wacker_api::RunRequest>) -> Result<Response<()>, Status> {
+impl modules_server::Modules for Server {
+    async fn run(&self, request: Request<RunRequest>) -> Result<Response<()>, Status> {
         let req = request.into_inner();
 
         let file_path = Path::new(&req.path);
@@ -135,27 +136,27 @@ impl wacker_api::modules_server::Modules for Server {
         Ok(Response::new(()))
     }
 
-    async fn list(&self, _: Request<()>) -> Result<Response<wacker_api::ListResponse>, Status> {
-        let mut reply = wacker_api::ListResponse { modules: vec![] };
+    async fn list(&self, _: Request<()>) -> Result<Response<ListResponse>, Status> {
+        let mut reply = ListResponse { modules: vec![] };
         let mut modules = self.modules.lock().unwrap();
 
         for (id, inner) in modules.iter_mut() {
             match inner.status {
-                wacker_api::ModuleStatus::Running if inner.handler.is_finished() => {
+                ModuleStatus::Running if inner.handler.is_finished() => {
                     inner.status = match inner.receiver.try_recv() {
                         Ok(err) => {
                             inner.error = Option::from(err);
-                            wacker_api::ModuleStatus::Error
+                            ModuleStatus::Error
                         }
                         Err(TryRecvError::Empty) | Err(TryRecvError::Closed) => {
-                            wacker_api::ModuleStatus::Finished
+                            ModuleStatus::Finished
                         }
                     };
                 }
                 _ => {}
             };
 
-            reply.modules.push(wacker_api::Module {
+            reply.modules.push(Module {
                 id: id.clone(),
                 path: inner.path.clone(),
                 status: i32::from(inner.status),
@@ -165,10 +166,7 @@ impl wacker_api::modules_server::Modules for Server {
         Ok(Response::new(reply))
     }
 
-    async fn stop(
-        &self,
-        request: Request<wacker_api::StopRequest>,
-    ) -> Result<Response<()>, Status> {
+    async fn stop(&self, request: Request<StopRequest>) -> Result<Response<()>, Status> {
         let req = request.into_inner();
 
         let mut modules = self.modules.lock().unwrap();
@@ -177,7 +175,7 @@ impl wacker_api::modules_server::Modules for Server {
                 info!("Stop the module: {}", req.id);
                 if !module.handler.is_finished() {
                     module.handler.abort();
-                    module.status = wacker_api::ModuleStatus::Stopped;
+                    module.status = ModuleStatus::Stopped;
                 }
                 Ok(Response::new(()))
             }
@@ -185,10 +183,7 @@ impl wacker_api::modules_server::Modules for Server {
         }
     }
 
-    async fn restart(
-        &self,
-        request: Request<wacker_api::RestartRequest>,
-    ) -> Result<Response<()>, Status> {
+    async fn restart(&self, request: Request<RestartRequest>) -> Result<Response<()>, Status> {
         let req = request.into_inner();
         info!("Restart the module: {}", req.id);
 
@@ -213,10 +208,7 @@ impl wacker_api::modules_server::Modules for Server {
         Ok(Response::new(()))
     }
 
-    async fn delete(
-        &self,
-        request: Request<wacker_api::DeleteRequest>,
-    ) -> Result<Response<()>, Status> {
+    async fn delete(&self, request: Request<DeleteRequest>) -> Result<Response<()>, Status> {
         let req = request.into_inner();
         info!("Delete the module: {}", req.id);
 
@@ -226,7 +218,7 @@ impl wacker_api::modules_server::Modules for Server {
                 module.handler.abort();
             }
 
-            if let Err(err) = remove_file(self.home_dir.join(LOGS_DIR).join(req.id.clone())) {
+            if let Err(err) = remove_file(self.config.logs_dir.join(req.id.clone())) {
                 if err.kind() != ErrorKind::NotFound {
                     return Err(Status::internal(format!(
                         "failed to remove the log file for {}: {}",

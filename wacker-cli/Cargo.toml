@@ -17,11 +17,10 @@ path = "src/main.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-wacker-api.workspace = true
+wacker.workspace = true
 
 anyhow.workspace = true
 clap.workspace = true
-dirs.workspace = true
 tokio.workspace = true
 tonic.workspace = true
 

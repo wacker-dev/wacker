@@ -1,19 +1,11 @@
-mod runtime;
-mod server;
-mod utils;
-
-use crate::server::Server;
 use anyhow::{bail, Result};
 use clap::Parser;
 use log::info;
-use std::fs;
+use std::fs::{create_dir, create_dir_all, remove_file};
 use tokio::net::UnixListener;
 use tokio::signal;
 use tokio_stream::wrappers::UnixListenerStream;
-use wacker_api::{
-    config::{DB_PATH, SOCK_PATH},
-    modules_server::ModulesServer,
-};
+use wacker::{Config, ModulesServer, Server};
 
 #[derive(Parser)]
 #[command(name = "wackerd")]
@@ -22,38 +14,38 @@ struct WackerDaemon {}
 
 impl WackerDaemon {
     async fn execute(self) -> Result<()> {
-        let home_dir = dirs::home_dir().expect("Can't get home dir");
-        let binding = home_dir.join(SOCK_PATH);
-        let path = binding.as_path();
-        let parent_path = path.parent().unwrap();
-
-        if !parent_path.exists() {
-            fs::create_dir_all(parent_path)?;
-        }
-        if path.exists() {
+        let config = Config::new()?;
+        if config.sock_path.exists() {
             bail!("wackerd socket file exists, is wackerd already running?");
         }
 
-        let uds = UnixListener::bind(path)?;
+        let parent_path = config.sock_path.parent().unwrap();
+        if !parent_path.exists() {
+            create_dir_all(parent_path)?;
+        }
+        if !config.logs_dir.exists() {
+            create_dir(config.logs_dir.clone())?;
+        }
+
+        let uds = UnixListener::bind(config.sock_path.clone())?;
         let uds_stream = UnixListenerStream::new(uds);
 
-        let db = sled::open(home_dir.join(DB_PATH))?;
-        let inner = Server::new(home_dir, db.clone()).await?;
+        let server = Server::new(config.clone()).await?;
 
         let env = env_logger::Env::default()
             .filter_or("LOG_LEVEL", "info")
             .write_style_or("LOG_STYLE", "never");
         env_logger::init_from_env(env);
 
-        info!("server listening on {:?}", path);
+        info!("server listening on {:?}", config.sock_path);
         tonic::transport::Server::builder()
-            .add_service(ModulesServer::new(inner))
+            .add_service(ModulesServer::new(server.clone()))
             .serve_with_incoming_shutdown(uds_stream, async {
                 signal::ctrl_c().await.expect("failed to listen for event");
                 println!();
                 info!("Shutting down the server");
-                fs::remove_file(path).expect("failed to remove existing socket file");
-                db.flush_async().await.expect("failed to flush the db");
+                remove_file(config.sock_path).expect("failed to remove existing socket file");
+                server.flush_db().await.expect("failed to flush the db");
             })
             .await?;
 

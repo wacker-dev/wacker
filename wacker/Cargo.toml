@@ -1,6 +1,6 @@
 [package]
 name = "wacker"
-description = "wacker daemon"
+description = "wacker core"
 readme = "../README.md"
 version.workspace = true
 authors.workspace = true
@@ -10,27 +10,26 @@ keywords.workspace = true
 repository.workspace = true
 license.workspace = true
 
-[[bin]]
-name = "wackerd"
-path = "src/main.rs"
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-wacker-api.workspace = true
-
 anyhow.workspace = true
 clap.workspace = true
-dirs.workspace = true
-tokio = { workspace = true, features = ["signal"] }
+log.workspace = true
+tokio.workspace = true
 tonic.workspace = true
 
+dirs = "5.0.1"
 tokio-stream = { version = "0.1.14", features = ["net"] }
 wasi-common = "15.0.1"
 wasmtime = "15.0.1"
 wasmtime-wasi = { version = "15.0.1", features = ["tokio"] }
-log = "0.4.20"
-env_logger = "0.10.1"
 cap-std = "2.0.0"
 rand = "0.8.5"
 sled = "0.34.7"
+tower = "0.4.13"
+prost = "0.12.3"
+const_format = "0.2.32"
+
+[build-dependencies]
+tonic-build = "0.10.2"
