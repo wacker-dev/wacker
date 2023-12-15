@@ -1,7 +1,10 @@
 use anyhow::{bail, Result};
+use chrono::Local;
 use clap::Parser;
-use log::info;
+use env_logger::{Builder, WriteStyle};
+use log::{info, LevelFilter};
 use std::fs::{create_dir, create_dir_all, remove_file};
+use std::io::Write;
 use tokio::net::UnixListener;
 use tokio::signal;
 use tokio_stream::wrappers::UnixListenerStream;
@@ -32,10 +35,20 @@ impl WackerDaemon {
 
         let server = Server::new(config.clone()).await?;
 
-        let env = env_logger::Env::default()
-            .filter_or("LOG_LEVEL", "info")
-            .write_style_or("LOG_STYLE", "never");
-        env_logger::init_from_env(env);
+        Builder::new()
+            .format(|buf, record| {
+                writeln!(
+                    buf,
+                    "[{} {} {}] {}",
+                    Local::now().format("%Y-%m-%d %H:%M:%S"),
+                    record.level(),
+                    record.target(),
+                    record.args(),
+                )
+            })
+            .filter_level(LevelFilter::Info)
+            .write_style(WriteStyle::Never)
+            .init();
 
         info!("server listening on {:?}", config.sock_path);
         tonic::transport::Server::builder()
