@@ -26,6 +26,12 @@ categories:
 exclude-labels:
   - 'skip-changelog'
 
+version-resolver:
+  minor:
+    labels:
+      - 'breaking'
+  default: patch
+
 autolabeler:
   - label: 'bug'
     branch:
