@@ -14,7 +14,7 @@ use tower::service_fn;
 pub use self::config::*;
 pub use self::module::{
     modules_client::ModulesClient, modules_server::ModulesServer, DeleteRequest, ListResponse,
-    Module, ModuleStatus, RestartRequest, RunRequest, StopRequest,
+    LogRequest, LogResponse, Module, ModuleStatus, RestartRequest, RunRequest, StopRequest,
 };
 pub use self::server::*;
 

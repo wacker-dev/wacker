@@ -3,17 +3,23 @@ use crate::module::*;
 use crate::runtime::Engine;
 use crate::utils::generate_random_string;
 use anyhow::{Error, Result};
+use async_stream::try_stream;
 use log::{error, info, warn};
 use sled::Db;
 use std::collections::HashMap;
 use std::fs::{remove_file, OpenOptions};
-use std::io::{ErrorKind, Write};
+use std::io::{ErrorKind, SeekFrom, Write};
 use std::path::Path;
+use std::pin::Pin;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use tokio::{
-    sync::{oneshot, oneshot::error::TryRecvError},
-    task,
+    fs::File,
+    io::{AsyncReadExt, AsyncSeekExt},
+    sync::{mpsc, oneshot, oneshot::error::TryRecvError},
+    task, time,
 };
+use tokio_stream::{wrappers::ReceiverStream, Stream, StreamExt};
 use tonic::{Request, Response, Status};
 
 #[derive(Clone)]
@@ -235,5 +241,79 @@ impl modules_server::Modules for Server {
         }
 
         Ok(Response::new(()))
+    }
+
+    type LogsStream = Pin<Box<dyn Stream<Item = Result<LogResponse, Status>> + Send>>;
+
+    async fn logs(
+        &self,
+        request: Request<LogRequest>,
+    ) -> Result<Response<Self::LogsStream>, Status> {
+        let req = request.into_inner();
+
+        let mut file = File::open(self.config.logs_dir.join(req.id)).await?;
+        let mut contents = String::new();
+        let last_position = file.read_to_string(&mut contents).await?;
+        let lines: Vec<&str> = contents.split_inclusive('\n').collect();
+
+        let len = lines.len();
+        let mut tail = req.tail as usize;
+        if tail == 0 || tail > len {
+            tail = len;
+        }
+        let content = &lines[len - tail..];
+
+        let (tx, rx) = mpsc::channel(128);
+        if let Err(err) = tx
+            .send(Result::<_, Status>::Ok(LogResponse {
+                content: content.concat(),
+            }))
+            .await
+        {
+            return Err(Status::internal(err.to_string()));
+        }
+
+        if req.follow {
+            let mut stream = Box::pin(loop_stream(file, last_position));
+            tokio::spawn(async move {
+                while let Some(content) = stream.next().await {
+                    match tx
+                        .send(Result::<_, Status>::Ok(LogResponse {
+                            content: content.unwrap(),
+                        }))
+                        .await
+                    {
+                        Ok(_) => {
+                            // item (server response) was queued to be send to client
+                        }
+                        Err(_) => {
+                            // output_stream was build from rx and both are dropped
+                            break;
+                        }
+                    }
+                }
+            });
+        }
+
+        let output_stream = ReceiverStream::new(rx);
+        Ok(Response::new(Box::pin(output_stream) as Self::LogsStream))
+    }
+}
+
+fn loop_stream(mut file: File, mut last_position: usize) -> impl Stream<Item = Result<String>> {
+    let mut contents = String::new();
+    let mut interval = time::interval(Duration::from_millis(200));
+
+    try_stream! {
+        loop {
+            contents.truncate(0);
+            file.seek(SeekFrom::Start(last_position as u64)).await?;
+            last_position += file.read_to_string(&mut contents).await?;
+            if !contents.is_empty() {
+                yield contents.clone();
+            }
+
+            interval.tick().await;
+        }
     }
 }

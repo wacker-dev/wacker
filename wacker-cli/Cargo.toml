@@ -22,6 +22,7 @@ wacker.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 tokio.workspace = true
+tokio-stream.workspace = true
 tonic.workspace = true
 
 tabled = "0.14.0"
