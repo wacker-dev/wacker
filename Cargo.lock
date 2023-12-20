@@ -2318,6 +2318,7 @@ name = "wacker"
 version = "0.2.0"
 dependencies = [
  "anyhow",
+ "async-stream",
  "cap-std",
  "clap",
  "const_format",
@@ -2344,6 +2345,7 @@ dependencies = [
  "clap",
  "tabled",
  "tokio",
+ "tokio-stream",
  "tonic",
  "wacker",
 ]

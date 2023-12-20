@@ -1,7 +1,9 @@
 use anyhow::{bail, Result};
 use clap::Parser;
-use std::process::Command;
-use wacker::Config;
+use std::io::{stdout, Write};
+use tokio_stream::StreamExt;
+use tonic::transport::Channel;
+use wacker::{LogRequest, ModulesClient};
 
 #[derive(Parser)]
 pub struct LogsCommand {
@@ -20,27 +22,24 @@ pub struct LogsCommand {
 
 impl LogsCommand {
     /// Executes the command.
-    pub async fn execute(self) -> Result<()> {
-        let config = Config::new()?;
-        let path = config.logs_dir.join(self.id);
-        let mut tail_args = vec![];
-        if self.follow {
-            tail_args.push("-f".to_string());
-        }
-        if self.tail.is_some() {
-            tail_args.push(format!("-n {}", self.tail.unwrap()));
-        }
-        tail_args.push(path.display().to_string());
-
-        match Command::new("tail").args(tail_args).spawn() {
-            Ok(mut child) => {
-                let status = child.wait().expect("Failed to wait for child process");
-                if !status.success() {
-                    bail!("tail command failed with: {:?}", status);
+    pub async fn execute(self, mut client: ModulesClient<Channel>) -> Result<()> {
+        match client
+            .logs(LogRequest {
+                id: self.id,
+                follow: self.follow,
+                tail: self.tail.unwrap_or(0),
+            })
+            .await
+        {
+            Ok(resp) => {
+                let mut resp = resp.into_inner();
+                while let Some(item) = resp.next().await {
+                    print!("{}", item.unwrap().content);
+                    stdout().flush()?;
                 }
                 Ok(())
             }
-            Err(err) => bail!("Error executing tail command: {}", err),
+            Err(err) => bail!(err.message().to_string()),
         }
     }
 }

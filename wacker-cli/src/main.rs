@@ -42,7 +42,7 @@ impl Wacker {
             Subcommand::Stop(c) => c.execute(client).await,
             Subcommand::Restart(c) => c.execute(client).await,
             Subcommand::Delete(c) => c.execute(client).await,
-            Subcommand::Logs(c) => c.execute().await,
+            Subcommand::Logs(c) => c.execute(client).await,
         }
     }
 }
