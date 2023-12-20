@@ -25,4 +25,4 @@ tokio.workspace = true
 tokio-stream.workspace = true
 tonic.workspace = true
 
-tabled = "0.14.0"
+tabled = "0.15.0"
