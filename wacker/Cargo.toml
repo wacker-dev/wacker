@@ -21,9 +21,9 @@ tokio-stream.workspace = true
 tonic.workspace = true
 
 dirs = "5.0.1"
-wasi-common = "15.0.1"
-wasmtime = "15.0.1"
-wasmtime-wasi = { version = "15.0.1", features = ["tokio"] }
+wasi-common = "16.0.0"
+wasmtime = "16.0.0"
+wasmtime-wasi = { version = "16.0.0", features = ["tokio"] }
 cap-std = "2.0.0"
 rand = "0.8.5"
 sled = "0.34.7"
