@@ -6,10 +6,15 @@ use wacker::new_client;
 
 #[derive(Parser)]
 #[command(name = "wacker")]
-#[command(author, version, about, long_about = None)]
+#[command(author, version = version(), about, long_about = None)]
 struct Wacker {
     #[command(subcommand)]
     subcommand: Subcommand,
+}
+
+fn version() -> &'static str {
+    // If WACKER_VERSION_INFO is set, use it, otherwise use CARGO_PKG_VERSION.
+    option_env!("WACKER_VERSION_INFO").unwrap_or(env!("CARGO_PKG_VERSION"))
 }
 
 #[derive(Parser)]
