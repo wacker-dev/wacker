@@ -12,8 +12,13 @@ use wacker::{Config, ModulesServer, Server};
 
 #[derive(Parser)]
 #[command(name = "wackerd")]
-#[command(author, version, about, long_about = None)]
+#[command(author, version = version(), about, long_about = None)]
 struct WackerDaemon {}
+
+fn version() -> &'static str {
+    // If WACKER_VERSION_INFO is set, use it, otherwise use CARGO_PKG_VERSION.
+    option_env!("WACKER_VERSION_INFO").unwrap_or(env!("CARGO_PKG_VERSION"))
+}
 
 impl WackerDaemon {
     async fn execute(self) -> Result<()> {
