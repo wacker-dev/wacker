@@ -64,11 +64,8 @@ impl Server {
     async fn load_from_db(&self) -> Result<()> {
         for data in self.db.iter() {
             let (id, path) = data?;
-            self.run_inner(
-                String::from_utf8(id.to_vec())?,
-                String::from_utf8(path.to_vec())?,
-            )
-            .await?;
+            self.run_inner(String::from_utf8(id.to_vec())?, String::from_utf8(path.to_vec())?)
+                .await?;
         }
         Ok(())
     }
@@ -125,11 +122,7 @@ impl modules_server::Modules for Server {
                 req.path
             )));
         }
-        let id = format!(
-            "{}-{}",
-            name.unwrap().to_str().unwrap(),
-            generate_random_string(7)
-        );
+        let id = format!("{}-{}", name.unwrap().to_str().unwrap(), generate_random_string(7));
 
         info!("Execute newly added module: {} ({})", id, req.path);
 
@@ -154,9 +147,7 @@ impl modules_server::Modules for Server {
                             inner.error = Option::from(err);
                             ModuleStatus::Error
                         }
-                        Err(TryRecvError::Empty) | Err(TryRecvError::Closed) => {
-                            ModuleStatus::Finished
-                        }
+                        Err(TryRecvError::Empty) | Err(TryRecvError::Closed) => ModuleStatus::Finished,
                     };
                 }
                 _ => {}
@@ -245,10 +236,7 @@ impl modules_server::Modules for Server {
 
     type LogsStream = Pin<Box<dyn Stream<Item = Result<LogResponse, Status>> + Send>>;
 
-    async fn logs(
-        &self,
-        request: Request<LogRequest>,
-    ) -> Result<Response<Self::LogsStream>, Status> {
+    async fn logs(&self, request: Request<LogRequest>) -> Result<Response<Self::LogsStream>, Status> {
         let req = request.into_inner();
 
         let mut file = File::open(self.config.logs_dir.join(req.id)).await?;
