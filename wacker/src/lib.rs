@@ -13,8 +13,8 @@ use tower::service_fn;
 
 pub use self::config::*;
 pub use self::module::{
-    modules_client::ModulesClient, modules_server::ModulesServer, DeleteRequest, ListResponse,
-    LogRequest, LogResponse, Module, ModuleStatus, RestartRequest, RunRequest, StopRequest,
+    modules_client::ModulesClient, modules_server::ModulesServer, DeleteRequest, ListResponse, LogRequest, LogResponse,
+    Module, ModuleStatus, RestartRequest, RunRequest, StopRequest,
 };
 pub use self::server::*;
 
