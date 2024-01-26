@@ -33,13 +33,20 @@ $ wacker run time.wasm
 
 Where `hello.wasm` is a simple WASM program that prints out `Hello World!` and exits, and `time.wasm` is a long-running program that constantly prints out the current time.
 
+Serve an HTTP WebAssembly module:
+
+```
+$ wacker serve hello_wasi_http.wasm --addr 127.0.0.1:8081
+```
+
 List running modules:
 
 ```
 $ wacker list
-ID              PATH         STATUS
-hello-w0AqXnf   hello.wasm   Finished
-time-xhQVmjU    time.wasm    Running
+ID                        PATH                   STATUS     ADDRESS
+hello-w0AqXnf             hello.wasm             Finished
+time-xhQVmjU              time.wasm              Running
+hello_wasi_http-luf1vz6   hello_wasi_http.wasm   Running    127.0.0.1:8081
 ```
 
 Fetch the logs:
@@ -74,6 +81,7 @@ Usage: wacker <COMMAND>
 
 Commands:
   run      Runs a WebAssembly module
+  serve    Serves an HTTP WebAssembly module
   list     Lists running WebAssembly modules [aliases: ps]
   stop     Stops a WebAssembly module
   restart  Restarts a WebAssembly module
