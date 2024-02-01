@@ -26,5 +26,5 @@ tokio = { workspace = true, features = ["signal"] }
 tonic.workspace = true
 
 tokio-stream = { version = "0.1.14", features = ["net"] }
-env_logger = "0.10.1"
+env_logger = "0.10.2"
 chrono = "0.4.31"
