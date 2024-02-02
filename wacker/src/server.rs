@@ -1,14 +1,16 @@
 use crate::config::*;
 use crate::module::*;
-use crate::runtime::Engine;
+use crate::runtime::{new_engine, HttpEngine, WasiEngine};
 use crate::utils::generate_random_string;
 use anyhow::{Error, Result};
 use async_stream::try_stream;
 use log::{error, info, warn};
+use serde::{Deserialize, Serialize};
 use sled::Db;
 use std::collections::HashMap;
 use std::fs::{remove_file, OpenOptions};
 use std::io::{ErrorKind, SeekFrom, Write};
+use std::net::SocketAddr;
 use std::path::Path;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
@@ -25,30 +27,39 @@ use tonic::{Request, Response, Status};
 #[derive(Clone)]
 pub struct Server {
     db: Db,
-    engine: Engine,
+    http_engine: HttpEngine,
+    wasi_engine: WasiEngine,
     modules: Arc<Mutex<HashMap<String, InnerModule>>>,
     config: Config,
 }
 
 struct InnerModule {
     path: String,
+    module_type: ModuleType,
+    addr: Option<String>,
     receiver: oneshot::Receiver<Error>,
     handler: task::JoinHandle<()>,
     status: ModuleStatus,
     error: Option<Error>,
 }
 
+#[derive(Default, Serialize, Deserialize)]
+struct ModuleInDB {
+    path: String,
+    module_type: i32,
+    addr: Option<String>,
+}
+
 impl Server {
     pub async fn new(config: Config) -> Result<Self, Error> {
         let db = sled::open(config.db_path.clone())?;
-        // Create an environment shared by all wasm execution. This contains
-        // the `Engine` we are executing.
-        let engine = Engine::new()?;
+        let engine = new_engine()?;
         let modules = HashMap::new();
 
         let service = Self {
             db,
-            engine,
+            http_engine: HttpEngine::new(engine.clone()),
+            wasi_engine: WasiEngine::new(engine),
             modules: Arc::new(Mutex::new(modules)),
             config,
         };
@@ -63,17 +74,21 @@ impl Server {
 
     async fn load_from_db(&self) -> Result<()> {
         for data in self.db.iter() {
-            let (id, path) = data?;
-            self.run_inner(String::from_utf8(id.to_vec())?, String::from_utf8(path.to_vec())?)
-                .await?;
+            let (id, bytes) = data?;
+            let id = String::from_utf8(id.to_vec())?;
+            let module: ModuleInDB = bincode::deserialize(&bytes)?;
+            match ModuleType::try_from(module.module_type).unwrap() {
+                ModuleType::Wasi => self.run_inner_wasi(id, module.path).await?,
+                ModuleType::Http => self.run_inner_http(id, module.path, module.addr.unwrap()).await?,
+            }
         }
         Ok(())
     }
 
-    async fn run_inner(&self, id: String, path: String) -> Result<()> {
+    async fn run_inner_wasi(&self, id: String, path: String) -> Result<()> {
         let mut modules = self.modules.lock().unwrap();
         let (sender, receiver) = oneshot::channel();
-        let engine = self.engine.clone();
+        let engine = self.wasi_engine.clone();
 
         let mut stdout = OpenOptions::new()
             .create(true)
@@ -85,9 +100,54 @@ impl Server {
             id.clone(),
             InnerModule {
                 path: path.clone(),
+                module_type: ModuleType::Wasi,
+                addr: None,
                 receiver,
                 handler: task::spawn(async move {
                     match engine.run_wasi(path.clone().as_str(), stdout_clone).await {
+                        Ok(_) => {}
+                        Err(e) => {
+                            error!("running module {} error: {}", id, e);
+                            if let Err(file_err) = stdout.write_all(e.to_string().as_bytes()) {
+                                warn!("write error log failed: {}", file_err);
+                            }
+                            if sender.send(e).is_err() {
+                                warn!("the receiver dropped");
+                            }
+                        }
+                    }
+                }),
+                status: ModuleStatus::Running,
+                error: None,
+            },
+        );
+
+        Ok(())
+    }
+
+    async fn run_inner_http(&self, id: String, path: String, addr: String) -> Result<()> {
+        let mut modules = self.modules.lock().unwrap();
+        let (sender, receiver) = oneshot::channel();
+        let engine = self.http_engine.clone();
+
+        let mut stdout = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(self.config.logs_dir.join(id.clone()))?;
+        let stdout_clone = stdout.try_clone()?;
+
+        modules.insert(
+            id.clone(),
+            InnerModule {
+                path: path.clone(),
+                module_type: ModuleType::Http,
+                addr: Option::from(addr.clone()),
+                receiver,
+                handler: task::spawn(async move {
+                    match engine
+                        .serve(path.clone().as_str(), addr.parse::<SocketAddr>().unwrap(), stdout_clone)
+                        .await
+                    {
                         Ok(_) => {}
                         Err(e) => {
                             error!("running module {} error: {}", id, e);
@@ -126,13 +186,57 @@ impl modules_server::Modules for Server {
 
         info!("Execute newly added module: {} ({})", id, req.path);
 
-        if let Err(err) = self.db.insert(id.as_str(), req.path.as_str()) {
-            return Err(Status::internal(err.to_string()));
+        let module = ModuleInDB {
+            path: req.path.clone(),
+            module_type: i32::from(ModuleType::Wasi),
+            addr: None,
+        };
+        match bincode::serialize(&module) {
+            Ok(bytes) => {
+                if let Err(err) = self.db.insert(id.as_str(), bytes) {
+                    return Err(Status::internal(err.to_string()));
+                }
+                if let Err(err) = self.run_inner_wasi(id, req.path).await {
+                    return Err(Status::internal(err.to_string()));
+                }
+                Ok(Response::new(()))
+            }
+            Err(err) => Err(Status::internal(err.to_string())),
         }
-        if let Err(err) = self.run_inner(id, req.path).await {
-            return Err(Status::internal(err.to_string()));
+    }
+
+    async fn serve(&self, request: Request<ServeRequest>) -> std::result::Result<Response<()>, Status> {
+        let req = request.into_inner();
+
+        let file_path = Path::new(&req.path);
+        let name = file_path.file_stem();
+        if name.is_none() {
+            return Err(Status::internal(format!(
+                "failed to get file name in path {}",
+                req.path
+            )));
         }
-        Ok(Response::new(()))
+        let id = format!("{}-{}", name.unwrap().to_str().unwrap(), generate_random_string(7));
+
+        info!("Serve newly added module: {} ({})", id, req.path);
+
+        let module = ModuleInDB {
+            path: req.path.clone(),
+            module_type: i32::from(ModuleType::Http),
+            addr: Option::from(req.addr.clone()),
+        };
+        match bincode::serialize(&module) {
+            Ok(bytes) => {
+                if let Err(err) = self.db.insert(id.as_str(), bytes) {
+                    return Err(Status::internal(err.to_string()));
+                }
+                if let Err(err) = self.run_inner_http(id, req.path, req.addr).await {
+                    return Err(Status::internal(err.to_string()));
+                }
+                Ok(Response::new(()))
+            }
+            Err(err) => Err(Status::internal(err.to_string())),
+        }
     }
 
     async fn list(&self, _: Request<()>) -> Result<Response<ListResponse>, Status> {
@@ -156,7 +260,9 @@ impl modules_server::Modules for Server {
             reply.modules.push(Module {
                 id: id.clone(),
                 path: inner.path.clone(),
+                module_type: i32::from(inner.module_type),
                 status: i32::from(inner.status),
+                addr: inner.addr.clone().unwrap_or_default(),
             });
         }
 
@@ -184,7 +290,7 @@ impl modules_server::Modules for Server {
         let req = request.into_inner();
         info!("Restart the module: {}", req.id);
 
-        let path = {
+        let (path, module_type, addr) = {
             let modules = self.modules.lock().unwrap();
             let module = modules.get(req.id.as_str());
             if module.is_none() {
@@ -195,13 +301,21 @@ impl modules_server::Modules for Server {
             if !module.handler.is_finished() {
                 module.handler.abort();
             }
-            module.path.clone()
+            (module.path.clone(), module.module_type, module.addr.clone())
         };
 
-        if let Err(err) = self.run_inner(req.id.clone(), path).await {
-            return Err(Status::internal(err.to_string()));
+        match module_type {
+            ModuleType::Wasi => {
+                if let Err(err) = self.run_inner_wasi(req.id, path).await {
+                    return Err(Status::internal(err.to_string()));
+                }
+            }
+            ModuleType::Http => {
+                if let Err(err) = self.run_inner_http(req.id, path, addr.unwrap()).await {
+                    return Err(Status::internal(err.to_string()));
+                }
+            }
         }
-
         Ok(Response::new(()))
     }
 

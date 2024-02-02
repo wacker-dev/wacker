@@ -18,6 +18,8 @@ struct Module {
     path: String,
     #[tabled(rename = "STATUS")]
     status: &'static str,
+    #[tabled(rename = "ADDRESS")]
+    address: String,
 }
 
 impl ListCommand {
@@ -33,6 +35,7 @@ impl ListCommand {
                 id: res.id,
                 path: res.path,
                 status: ModuleStatus::try_from(res.status).unwrap().as_str_name(),
+                address: res.addr,
             })
         }
 
@@ -41,7 +44,7 @@ impl ListCommand {
             .with(Padding::new(0, 2, 0, 0))
             .with(Style::blank())
             // the PATH column
-            .with(Modify::new(Columns::single(1)).with(Width::wrap(80).keep_words()));
+            .with(Modify::new(Columns::single(1)).with(Width::wrap(60).keep_words()));
 
         println!("{table}");
 

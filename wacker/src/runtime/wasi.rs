@@ -1,56 +1,30 @@
-use anyhow::{anyhow, Error, Result};
+use anyhow::anyhow;
 use std::fs::File;
-use std::sync::Arc;
 use wasi_common::I32Exit;
-use wasmtime::{Config, Engine as WasmtimeEngine, Linker, Module, OptLevel, Store};
-use wasmtime_wasi::{tokio, WasiCtx};
+use wasmtime::{Engine, Linker, Module, Store};
 
 #[derive(Clone)]
-pub struct Engine {
-    engine: WasmtimeEngine,
-    linker: Arc<Linker<WasiCtx>>,
+pub struct WasiEngine {
+    engine: Engine,
 }
 
-impl Engine {
-    pub fn new() -> Result<Self, Error> {
-        let mut config = Config::new();
-        // We need this engine's `Store`s to be async, and consume fuel, so
-        // that they can co-operatively yield during execution.
-        config.async_support(true);
-        config.consume_fuel(true);
-        config.cache_config_load_default()?;
-        config.cranelift_opt_level(OptLevel::SpeedAndSize);
-
-        // Initialize global per-process state. This state will be shared amongst all
-        // threads. Notably this includes the compiled module as well as a `Linker`,
-        // which contains all our host functions we want to define.
-        let engine = WasmtimeEngine::new(&config)?;
-
-        // A `Linker` is shared in the environment amongst all stores, and this
-        // linker is used to instantiate the `module` above. This example only
-        // adds WASI functions to the linker, notably the async versions built
-        // on tokio.
-        let mut linker = Linker::new(&engine);
-        tokio::add_to_linker(&mut linker, |cx| cx)?;
-
-        Ok(Self {
-            engine,
-            linker: Arc::new(linker),
-        })
+impl WasiEngine {
+    pub fn new(engine: Engine) -> Self {
+        Self { engine }
     }
 
-    pub async fn run_wasi(&self, path: &str, stdout: File) -> Result<()> {
+    pub async fn run_wasi(&self, path: &str, stdout: File) -> anyhow::Result<()> {
         let stderr = stdout.try_clone()?;
 
         let wasi_stdout = cap_std::fs::File::from_std(stdout);
-        let wasi_stdout = tokio::File::from_cap_std(wasi_stdout);
+        let wasi_stdout = wasmtime_wasi::tokio::File::from_cap_std(wasi_stdout);
         let wasi_stderr = cap_std::fs::File::from_std(stderr);
-        let wasi_stderr = tokio::File::from_cap_std(wasi_stderr);
+        let wasi_stderr = wasmtime_wasi::tokio::File::from_cap_std(wasi_stderr);
 
         // Create a WASI context and put it in a Store; all instances in the store
         // share this context. `WasiCtxBuilder` provides a number of ways to
         // configure what the target program will have access to.
-        let wasi = tokio::WasiCtxBuilder::new()
+        let wasi = wasmtime_wasi::tokio::WasiCtxBuilder::new()
             .inherit_stdin()
             .stdout(Box::new(wasi_stdout))
             .stderr(Box::new(wasi_stderr))
@@ -67,9 +41,16 @@ impl Engine {
         // Instantiate our module with the imports we've created, and run it.
         let module = Module::from_file(&self.engine, path)?;
 
+        // A `Linker` is shared in the environment amongst all stores, and this
+        // linker is used to instantiate the `module` above. This example only
+        // adds WASI functions to the linker, notably the async versions built
+        // on tokio.
+        let mut linker = Linker::new(&self.engine);
+        wasmtime_wasi::tokio::add_to_linker(&mut linker, |cx| cx)?;
+
         // Instantiate into our own unique store using the shared linker, afterwards
         // acquiring the `_start` function for the module and executing it.
-        let instance = self.linker.instantiate_async(&mut store, &module).await?;
+        let instance = linker.instantiate_async(&mut store, &module).await?;
         let func = instance
             .get_func(&mut store, "_start")
             .or_else(|| instance.get_func(&mut store, ""));

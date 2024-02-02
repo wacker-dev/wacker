@@ -6,6 +6,7 @@ package module;
 
 service Modules {
   rpc Run (RunRequest) returns (google.protobuf.Empty);
+  rpc Serve (ServeRequest) returns (google.protobuf.Empty);
   rpc List (google.protobuf.Empty) returns (ListResponse);
   rpc Stop (StopRequest) returns (google.protobuf.Empty);
   rpc Restart (RestartRequest) returns (google.protobuf.Empty);
@@ -15,6 +16,16 @@ service Modules {
 
 message RunRequest {
   string path = 1;
+}
+
+message ServeRequest {
+  string path = 1;
+  string addr = 2;
+}
+
+enum ModuleType {
+  WASI = 0;
+  HTTP = 1;
 }
 
 enum ModuleStatus {
@@ -27,7 +38,9 @@ enum ModuleStatus {
 message Module {
   string id = 1;
   string path = 2;
-  ModuleStatus status = 3;
+  ModuleType module_type = 3;
+  ModuleStatus status = 4;
+  string addr = 5;
 }
 
 message ListResponse {

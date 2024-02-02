@@ -21,6 +21,8 @@ fn version() -> &'static str {
 enum Subcommand {
     /// Runs a WebAssembly module
     Run(commands::RunCommand),
+    /// Serves an HTTP WebAssembly module
+    Serve(commands::ServeCommand),
     /// Lists running WebAssembly modules
     #[command(visible_alias = "ps")]
     List(commands::ListCommand),
@@ -43,6 +45,7 @@ impl Wacker {
 
         match self.subcommand {
             Subcommand::Run(c) => c.execute(client).await,
+            Subcommand::Serve(c) => c.execute(client).await,
             Subcommand::List(c) => c.execute(client).await,
             Subcommand::Stop(c) => c.execute(client).await,
             Subcommand::Restart(c) => c.execute(client).await,

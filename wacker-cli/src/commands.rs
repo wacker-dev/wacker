@@ -10,3 +10,5 @@ mod delete;
 pub use self::delete::*;
 mod logs;
 pub use self::logs::*;
+mod serve;
+pub use self::serve::*;
