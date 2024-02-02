@@ -16,7 +16,7 @@ jobs:
       with:
         components: clippy, rustfmt
     - name: Install Protoc
-      uses: arduino/setup-protoc@v2
+      uses: arduino/setup-protoc@v3
     - name: cargo fmt
       run: cargo fmt --all -- --check
     - name: cargo clippy
