@@ -2445,7 +2445,7 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "wacker"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -2477,7 +2477,7 @@ dependencies = [
 
 [[package]]
 name = "wacker-cli"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -2490,7 +2490,7 @@ dependencies = [
 
 [[package]]
 name = "wacker-daemon"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "chrono",
