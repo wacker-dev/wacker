@@ -8,6 +8,7 @@ use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use sled::Db;
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::fs::{remove_file, OpenOptions};
 use std::io::{ErrorKind, SeekFrom, Write};
 use std::net::SocketAddr;
@@ -169,6 +170,10 @@ impl Server {
     }
 }
 
+fn to_status<E: Display>(err: E) -> Status {
+    Status::internal(err.to_string())
+}
+
 #[tonic::async_trait]
 impl modules_server::Modules for Server {
     async fn run(&self, request: Request<RunRequest>) -> Result<Response<()>, Status> {
@@ -193,12 +198,8 @@ impl modules_server::Modules for Server {
         };
         match bincode::serialize(&module) {
             Ok(bytes) => {
-                if let Err(err) = self.db.insert(id.as_str(), bytes) {
-                    return Err(Status::internal(err.to_string()));
-                }
-                if let Err(err) = self.run_inner_wasi(id, req.path).await {
-                    return Err(Status::internal(err.to_string()));
-                }
+                self.db.insert(id.as_str(), bytes).map_err(to_status)?;
+                self.run_inner_wasi(id, req.path).await.map_err(to_status)?;
                 Ok(Response::new(()))
             }
             Err(err) => Err(Status::internal(err.to_string())),
@@ -227,12 +228,8 @@ impl modules_server::Modules for Server {
         };
         match bincode::serialize(&module) {
             Ok(bytes) => {
-                if let Err(err) = self.db.insert(id.as_str(), bytes) {
-                    return Err(Status::internal(err.to_string()));
-                }
-                if let Err(err) = self.run_inner_http(id, req.path, req.addr).await {
-                    return Err(Status::internal(err.to_string()));
-                }
+                self.db.insert(id.as_str(), bytes).map_err(to_status)?;
+                self.run_inner_http(id, req.path, req.addr).await.map_err(to_status)?;
                 Ok(Response::new(()))
             }
             Err(err) => Err(Status::internal(err.to_string())),
@@ -305,16 +302,11 @@ impl modules_server::Modules for Server {
         };
 
         match module_type {
-            ModuleType::Wasi => {
-                if let Err(err) = self.run_inner_wasi(req.id, path).await {
-                    return Err(Status::internal(err.to_string()));
-                }
-            }
-            ModuleType::Http => {
-                if let Err(err) = self.run_inner_http(req.id, path, addr.unwrap()).await {
-                    return Err(Status::internal(err.to_string()));
-                }
-            }
+            ModuleType::Wasi => self.run_inner_wasi(req.id, path).await.map_err(to_status)?,
+            ModuleType::Http => self
+                .run_inner_http(req.id, path, addr.unwrap())
+                .await
+                .map_err(to_status)?,
         }
         Ok(Response::new(()))
     }
@@ -339,9 +331,7 @@ impl modules_server::Modules for Server {
                 }
             }
 
-            if let Err(err) = self.db.remove(req.id.clone()) {
-                return Err(Status::internal(err.to_string()));
-            }
+            self.db.remove(req.id.clone()).map_err(to_status)?;
             modules.remove(req.id.clone().as_str());
         }
 
@@ -366,14 +356,11 @@ impl modules_server::Modules for Server {
         let content = &lines[len - tail..];
 
         let (tx, rx) = mpsc::channel(128);
-        if let Err(err) = tx
-            .send(Result::<_, Status>::Ok(LogResponse {
-                content: content.concat(),
-            }))
-            .await
-        {
-            return Err(Status::internal(err.to_string()));
-        }
+        tx.send(Result::<_, Status>::Ok(LogResponse {
+            content: content.concat(),
+        }))
+        .await
+        .map_err(to_status)?;
 
         if req.follow {
             let mut stream = Box::pin(loop_stream(file, last_position));
