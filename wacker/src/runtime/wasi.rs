@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 use std::fs::File;
-use wasi_common::I32Exit;
+use wasi_common::{tokio, I32Exit};
 use wasmtime::{Engine, Linker, Module, Store};
 
 #[derive(Clone)]
@@ -17,14 +17,14 @@ impl WasiEngine {
         let stderr = stdout.try_clone()?;
 
         let wasi_stdout = cap_std::fs::File::from_std(stdout);
-        let wasi_stdout = wasmtime_wasi::tokio::File::from_cap_std(wasi_stdout);
+        let wasi_stdout = tokio::File::from_cap_std(wasi_stdout);
         let wasi_stderr = cap_std::fs::File::from_std(stderr);
-        let wasi_stderr = wasmtime_wasi::tokio::File::from_cap_std(wasi_stderr);
+        let wasi_stderr = tokio::File::from_cap_std(wasi_stderr);
 
         // Create a WASI context and put it in a Store; all instances in the store
         // share this context. `WasiCtxBuilder` provides a number of ways to
         // configure what the target program will have access to.
-        let wasi = wasmtime_wasi::tokio::WasiCtxBuilder::new()
+        let wasi = tokio::WasiCtxBuilder::new()
             .inherit_stdin()
             .stdout(Box::new(wasi_stdout))
             .stderr(Box::new(wasi_stderr))
@@ -46,7 +46,7 @@ impl WasiEngine {
         // adds WASI functions to the linker, notably the async versions built
         // on tokio.
         let mut linker = Linker::new(&self.engine);
-        wasmtime_wasi::tokio::add_to_linker(&mut linker, |cx| cx)?;
+        tokio::add_to_linker(&mut linker, |cx| cx)?;
 
         // Instantiate into our own unique store using the shared linker, afterwards
         // acquiring the `_start` function for the module and executing it.
