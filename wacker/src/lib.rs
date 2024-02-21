@@ -8,6 +8,7 @@ mod module {
 
 use anyhow::Result;
 use tokio::net::UnixStream;
+use tonic::codec::CompressionEncoding;
 use tonic::transport::{Channel, Endpoint};
 use tower::service_fn;
 
@@ -28,5 +29,7 @@ pub async fn new_client() -> Result<ModulesClient<Channel>> {
         }))
         .await?;
 
-    Ok(ModulesClient::new(channel))
+    Ok(ModulesClient::new(channel)
+        .send_compressed(CompressionEncoding::Zstd)
+        .accept_compressed(CompressionEncoding::Zstd))
 }
