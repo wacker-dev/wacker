@@ -22,7 +22,7 @@ tonic.workspace = true
 
 dirs = "5.0.1"
 wasi-common = { version = "18.0.1", features = ["tokio"] }
-wasmtime = "18.0.1"
+wasmtime = "18.0.2"
 wasmtime-wasi = "18.0.1"
 wasmtime-wasi-http = "18.0.1"
 cap-std = "2.0.0"
