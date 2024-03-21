@@ -1,13 +1,13 @@
 [workspace]
 resolver = "2"
 members = [
-  "wacker",
-  "wacker-daemon",
-  "wacker-cli",
+    "wacker",
+    "wacker-daemon",
+    "wacker-cli",
 ]
 
 [workspace.package]
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Xinzhao Xu"]
 edition = "2021"
 categories = ["wasm"]
@@ -16,7 +16,7 @@ repository = "https://github.com/iawia002/wacker"
 license = "Apache-2.0"
 
 [workspace.dependencies]
-wacker = { path = "wacker", version = "0.3.0" }
+wacker = { path = "wacker", version = "0.4.0" }
 
 anyhow = "1.0.79"
 clap = { version = "4.5.1", features = ["derive"] }
