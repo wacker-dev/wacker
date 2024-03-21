@@ -9,7 +9,9 @@ use std::sync::{
 };
 use wasmtime::component::{Component, InstancePre, Linker, ResourceTable};
 use wasmtime::{Engine, Store};
-use wasmtime_wasi::preview2::{self, StreamError, StreamResult, WasiCtx, WasiCtxBuilder, WasiView};
+use wasmtime_wasi::{
+    bindings, HostOutputStream, StdoutStream, StreamError, StreamResult, Subscribe, WasiCtx, WasiCtxBuilder, WasiView,
+};
 use wasmtime_wasi_http::{
     bindings::http::types as http_types, body::HyperOutgoingBody, hyper_response_error, io::TokioIo, WasiHttpCtx,
     WasiHttpView,
@@ -74,10 +76,10 @@ impl HttpEngine {
 
     fn add_to_linker(&self, linker: &mut Linker<Host>) -> Result<()> {
         // ref: https://github.com/bytecodealliance/wasmtime/pull/7728
-        preview2::bindings::filesystem::preopens::add_to_linker(linker, |t| t)?;
-        preview2::bindings::filesystem::types::add_to_linker(linker, |t| t)?;
-        preview2::bindings::cli::environment::add_to_linker(linker, |t| t)?;
-        preview2::bindings::cli::exit::add_to_linker(linker, |t| t)?;
+        bindings::filesystem::preopens::add_to_linker(linker, |t| t)?;
+        bindings::filesystem::types::add_to_linker(linker, |t| t)?;
+        bindings::cli::environment::add_to_linker(linker, |t| t)?;
+        bindings::cli::exit::add_to_linker(linker, |t| t)?;
 
         wasmtime_wasi_http::proxy::add_to_linker(linker)?;
         Ok(())
@@ -218,8 +220,8 @@ struct LogStream {
     output: File,
 }
 
-impl preview2::StdoutStream for LogStream {
-    fn stream(&self) -> Box<dyn preview2::HostOutputStream> {
+impl StdoutStream for LogStream {
+    fn stream(&self) -> Box<dyn HostOutputStream> {
         Box::new(LogStream {
             output: self.output.try_clone().expect(""),
         })
@@ -230,7 +232,7 @@ impl preview2::StdoutStream for LogStream {
     }
 }
 
-impl preview2::HostOutputStream for LogStream {
+impl HostOutputStream for LogStream {
     fn write(&mut self, bytes: bytes::Bytes) -> StreamResult<()> {
         self.output
             .write_all(bytes.as_ref())
@@ -247,6 +249,6 @@ impl preview2::HostOutputStream for LogStream {
 }
 
 #[async_trait::async_trait]
-impl preview2::Subscribe for LogStream {
+impl Subscribe for LogStream {
     async fn ready(&mut self) {}
 }
