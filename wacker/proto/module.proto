@@ -23,23 +23,11 @@ message ServeRequest {
   string addr = 2;
 }
 
-enum ModuleType {
-  WASI = 0;
-  HTTP = 1;
-}
-
-enum ModuleStatus {
-  Running = 0;
-  Finished = 1;
-  Error = 2;
-  Stopped = 3;
-}
-
 message Module {
   string id = 1;
   string path = 2;
-  ModuleType module_type = 3;
-  ModuleStatus status = 4;
+  uint32 module_type = 3;
+  uint32 status = 4;
   string addr = 5;
 }
 
