@@ -1,11 +1,13 @@
 use anyhow::{bail, Result};
 use clap::Parser;
+use once_cell::sync::Lazy;
+use std::collections::HashMap;
 use tabled::{
     settings::{object::Columns, Modify, Padding, Style, Width},
     Table, Tabled,
 };
 use tonic::transport::Channel;
-use wacker::{ModuleStatus, ModulesClient};
+use wacker::ModulesClient;
 
 #[derive(Parser)]
 pub struct ListCommand {}
@@ -22,6 +24,15 @@ struct Module {
     address: String,
 }
 
+static STATUS: Lazy<HashMap<u32, &'static str>> = Lazy::new(|| {
+    let mut table = HashMap::new();
+    table.insert(0, "Running");
+    table.insert(1, "Finished");
+    table.insert(2, "Error");
+    table.insert(3, "Stopped");
+    table
+});
+
 impl ListCommand {
     pub async fn execute(self, mut client: ModulesClient<Channel>) -> Result<()> {
         let response = match client.list(()).await {
@@ -34,7 +45,7 @@ impl ListCommand {
             modules.push(Module {
                 id: res.id,
                 path: res.path,
-                status: ModuleStatus::try_from(res.status).unwrap().as_str_name(),
+                status: STATUS.get(&res.status).unwrap_or(&"Unknown"),
                 address: res.addr,
             })
         }

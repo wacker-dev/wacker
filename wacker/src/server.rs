@@ -36,18 +36,18 @@ pub struct Server {
 
 struct InnerModule {
     path: String,
-    module_type: ModuleType,
+    module_type: u32,
     addr: Option<String>,
     receiver: oneshot::Receiver<Error>,
     handler: task::JoinHandle<()>,
-    status: ModuleStatus,
+    status: u32,
     error: Option<Error>,
 }
 
 #[derive(Default, Serialize, Deserialize)]
 struct ModuleInDB {
     path: String,
-    module_type: i32,
+    module_type: u32,
     addr: Option<String>,
 }
 
@@ -78,9 +78,10 @@ impl Server {
             let (id, bytes) = data?;
             let id = String::from_utf8(id.to_vec())?;
             let module: ModuleInDB = bincode::deserialize(&bytes)?;
-            match ModuleType::try_from(module.module_type).unwrap() {
-                ModuleType::Wasi => self.run_inner_wasi(id, module.path).await?,
-                ModuleType::Http => self.run_inner_http(id, module.path, module.addr.unwrap()).await?,
+            match module.module_type {
+                MODULE_TYPE_WASI => self.run_inner_wasi(id, module.path).await?,
+                MODULE_TYPE_HTTP => self.run_inner_http(id, module.path, module.addr.unwrap()).await?,
+                _ => {}
             }
         }
         Ok(())
@@ -101,7 +102,7 @@ impl Server {
             id.clone(),
             InnerModule {
                 path: path.clone(),
-                module_type: ModuleType::Wasi,
+                module_type: MODULE_TYPE_WASI,
                 addr: None,
                 receiver,
                 handler: task::spawn(async move {
@@ -118,7 +119,7 @@ impl Server {
                         }
                     }
                 }),
-                status: ModuleStatus::Running,
+                status: MODULE_STATUS_RUNNING,
                 error: None,
             },
         );
@@ -141,7 +142,7 @@ impl Server {
             id.clone(),
             InnerModule {
                 path: path.clone(),
-                module_type: ModuleType::Http,
+                module_type: MODULE_TYPE_HTTP,
                 addr: Option::from(addr.clone()),
                 receiver,
                 handler: task::spawn(async move {
@@ -161,7 +162,7 @@ impl Server {
                         }
                     }
                 }),
-                status: ModuleStatus::Running,
+                status: MODULE_STATUS_RUNNING,
                 error: None,
             },
         );
@@ -193,7 +194,7 @@ impl modules_server::Modules for Server {
 
         let module = ModuleInDB {
             path: req.path.clone(),
-            module_type: i32::from(ModuleType::Wasi),
+            module_type: MODULE_TYPE_WASI,
             addr: None,
         };
         match bincode::serialize(&module) {
@@ -223,7 +224,7 @@ impl modules_server::Modules for Server {
 
         let module = ModuleInDB {
             path: req.path.clone(),
-            module_type: i32::from(ModuleType::Http),
+            module_type: MODULE_TYPE_HTTP,
             addr: Option::from(req.addr.clone()),
         };
         match bincode::serialize(&module) {
@@ -242,13 +243,13 @@ impl modules_server::Modules for Server {
 
         for (id, inner) in modules.iter_mut() {
             match inner.status {
-                ModuleStatus::Running if inner.handler.is_finished() => {
+                MODULE_STATUS_RUNNING if inner.handler.is_finished() => {
                     inner.status = match inner.receiver.try_recv() {
                         Ok(err) => {
                             inner.error = Option::from(err);
-                            ModuleStatus::Error
+                            MODULE_STATUS_ERROR
                         }
-                        Err(TryRecvError::Empty) | Err(TryRecvError::Closed) => ModuleStatus::Finished,
+                        Err(TryRecvError::Empty) | Err(TryRecvError::Closed) => MODULE_STATUS_FINISHED,
                     };
                 }
                 _ => {}
@@ -257,8 +258,8 @@ impl modules_server::Modules for Server {
             reply.modules.push(Module {
                 id: id.clone(),
                 path: inner.path.clone(),
-                module_type: i32::from(inner.module_type),
-                status: i32::from(inner.status),
+                module_type: inner.module_type,
+                status: inner.status,
                 addr: inner.addr.clone().unwrap_or_default(),
             });
         }
@@ -275,7 +276,7 @@ impl modules_server::Modules for Server {
                 info!("Stop the module: {}", req.id);
                 if !module.handler.is_finished() {
                     module.handler.abort();
-                    module.status = ModuleStatus::Stopped;
+                    module.status = MODULE_STATUS_STOPPED;
                 }
                 Ok(Response::new(()))
             }
@@ -302,11 +303,12 @@ impl modules_server::Modules for Server {
         };
 
         match module_type {
-            ModuleType::Wasi => self.run_inner_wasi(req.id, path).await.map_err(to_status)?,
-            ModuleType::Http => self
+            MODULE_TYPE_WASI => self.run_inner_wasi(req.id, path).await.map_err(to_status)?,
+            MODULE_TYPE_HTTP => self
                 .run_inner_http(req.id, path, addr.unwrap())
                 .await
                 .map_err(to_status)?,
+            _ => {}
         }
         Ok(Response::new(()))
     }
