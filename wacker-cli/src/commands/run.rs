@@ -1,18 +1,18 @@
 use anyhow::{anyhow, Result};
 use clap::Parser;
 use tonic::transport::Channel;
-use wacker::{ModulesClient, RunRequest};
+use wacker::{RunRequest, WackerClient};
 
 #[derive(Parser)]
 pub struct RunCommand {
-    /// Module file path
+    /// Program file path
     #[arg(required = true)]
     path: String,
 }
 
 impl RunCommand {
     /// Executes the command.
-    pub async fn execute(self, mut client: ModulesClient<Channel>) -> Result<()> {
+    pub async fn execute(self, mut client: WackerClient<Channel>) -> Result<()> {
         match client
             .run(RunRequest {
                 path: self.path.to_string(),

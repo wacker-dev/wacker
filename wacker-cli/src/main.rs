@@ -19,21 +19,21 @@ fn version() -> &'static str {
 
 #[derive(Parser)]
 enum Subcommand {
-    /// Runs a WebAssembly module
+    /// Runs a WebAssembly program
     Run(commands::RunCommand),
-    /// Serves an HTTP WebAssembly module
+    /// Serves an HTTP WebAssembly program
     Serve(commands::ServeCommand),
-    /// Lists running WebAssembly modules
+    /// Lists running WebAssembly programs
     #[command(visible_alias = "ps")]
     List(commands::ListCommand),
-    /// Stops a WebAssembly module
+    /// Stops a WebAssembly program
     Stop(commands::StopCommand),
-    /// Restarts a WebAssembly module
+    /// Restarts a WebAssembly program
     Restart(commands::RestartCommand),
-    /// Deletes a WebAssembly module
+    /// Deletes a WebAssembly program
     #[command(visible_alias = "rm")]
     Delete(commands::DeleteCommand),
-    /// Fetches logs of a module
+    /// Fetches logs of a program
     #[command(visible_alias = "log")]
     Logs(commands::LogsCommand),
 }

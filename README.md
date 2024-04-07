@@ -24,7 +24,7 @@ $ wackerd
 [2023-11-22T07:25:31Z INFO  wackerd] server listening on "/Users/user/.wacker/wacker.sock"
 ```
 
-Run a WebAssembly module:
+Run a WebAssembly program:
 
 ```
 $ wacker run hello.wasm
@@ -33,13 +33,13 @@ $ wacker run time.wasm
 
 Where `hello.wasm` is a simple WASM program that prints out `Hello World!` and exits, and `time.wasm` is a long-running program that constantly prints out the current time.
 
-Serve an HTTP WebAssembly module:
+Serve an HTTP WebAssembly program:
 
 ```
 $ wacker serve hello_wasi_http.wasm --addr 127.0.0.1:8081
 ```
 
-List running modules:
+List running programs:
 
 ```
 $ wacker list
@@ -63,7 +63,7 @@ current time: 2023-11-22 07:42:37
 current time: 2023-11-22 07:42:38
 ```
 
-And you can also stop/restart/delete the module:
+And you can also stop/restart/delete the program:
 
 ```
 $ wacker stop time-xhQVmjU
@@ -80,13 +80,13 @@ wacker client
 Usage: wacker <COMMAND>
 
 Commands:
-  run      Runs a WebAssembly module
-  serve    Serves an HTTP WebAssembly module
-  list     Lists running WebAssembly modules [aliases: ps]
-  stop     Stops a WebAssembly module
-  restart  Restarts a WebAssembly module
-  delete   Deletes a WebAssembly module [aliases: rm]
-  logs     Fetches logs of a module [aliases: log]
+  run      Runs a WebAssembly program
+  serve    Serves an HTTP WebAssembly program
+  list     Lists running WebAssembly programs [aliases: ps]
+  stop     Stops a WebAssembly program
+  restart  Restarts a WebAssembly program
+  delete   Deletes a WebAssembly program [aliases: rm]
+  logs     Fetches logs of a program [aliases: log]
   help     Print this message or the help of the given subcommand(s)
 
 Options:

@@ -2531,6 +2531,7 @@ dependencies = [
  "clap",
  "env_logger",
  "log",
+ "sled",
  "tokio",
  "tokio-stream",
  "tonic",

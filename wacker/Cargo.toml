@@ -19,6 +19,7 @@ log.workspace = true
 tokio.workspace = true
 tokio-stream.workspace = true
 tonic.workspace = true
+sled.workspace = true
 
 dirs = "5.0.1"
 wasi-common = { version = "19.0.0", features = ["tokio"] }
@@ -27,7 +28,6 @@ wasmtime-wasi = "19.0.0"
 wasmtime-wasi-http = "19.0.0"
 cap-std = "3.0.0"
 rand = "0.8.5"
-sled = "0.34.7"
 tower = "0.4.13"
 prost = "0.12.3"
 const_format = "0.2.32"

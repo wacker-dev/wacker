@@ -1,19 +1,24 @@
-use anyhow::anyhow;
+use crate::runtime::{Engine, ProgramMeta};
+use anyhow::{anyhow, Result};
+use async_trait::async_trait;
 use std::fs::File;
 use wasi_common::{tokio, I32Exit};
-use wasmtime::{Engine, Linker, Module, Store};
+use wasmtime::{Linker, Module, Store};
 
 #[derive(Clone)]
 pub struct WasiEngine {
-    engine: Engine,
+    engine: wasmtime::Engine,
 }
 
 impl WasiEngine {
-    pub fn new(engine: Engine) -> Self {
+    pub fn new(engine: wasmtime::Engine) -> Self {
         Self { engine }
     }
+}
 
-    pub async fn run_wasi(&self, path: &str, stdout: File) -> anyhow::Result<()> {
+#[async_trait]
+impl Engine for WasiEngine {
+    async fn run(&self, meta: ProgramMeta, stdout: File) -> Result<()> {
         let stderr = stdout.try_clone()?;
 
         let wasi_stdout = cap_std::fs::File::from_std(stdout);
@@ -39,7 +44,7 @@ impl WasiEngine {
         store.fuel_async_yield_interval(Some(10000))?;
 
         // Instantiate our module with the imports we've created, and run it.
-        let module = Module::from_file(&self.engine, path)?;
+        let module = Module::from_file(&self.engine, meta.path)?;
 
         // A `Linker` is shared in the environment amongst all stores, and this
         // linker is used to instantiate the `module` above. This example only

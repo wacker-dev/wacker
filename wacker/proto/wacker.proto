@@ -2,9 +2,9 @@ syntax = "proto3";
 
 import "google/protobuf/empty.proto";
 
-package module;
+package wacker;
 
-service Modules {
+service Wacker {
   rpc Run (RunRequest) returns (google.protobuf.Empty);
   rpc Serve (ServeRequest) returns (google.protobuf.Empty);
   rpc List (google.protobuf.Empty) returns (ListResponse);
@@ -23,16 +23,16 @@ message ServeRequest {
   string addr = 2;
 }
 
-message Module {
+message Program {
   string id = 1;
   string path = 2;
-  uint32 module_type = 3;
+  uint32 program_type = 3;
   uint32 status = 4;
   string addr = 5;
 }
 
 message ListResponse {
-  repeated Module modules = 1;
+  repeated Program programs = 1;
 }
 
 message StopRequest {
