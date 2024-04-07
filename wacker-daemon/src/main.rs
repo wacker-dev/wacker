@@ -9,7 +9,7 @@ use tokio::net::UnixListener;
 use tokio::signal;
 use tokio_stream::wrappers::UnixListenerStream;
 use tonic::codec::CompressionEncoding;
-use wacker::{Config, ModulesServer, Server};
+use wacker::{Config, Server, WackerServer};
 
 #[derive(Parser)]
 #[command(name = "wackerd")]
@@ -39,8 +39,6 @@ impl WackerDaemon {
         let uds = UnixListener::bind(config.sock_path.clone())?;
         let uds_stream = UnixListenerStream::new(uds);
 
-        let server = Server::new(config.clone()).await?;
-
         Builder::new()
             .format(|buf, record| {
                 writeln!(
@@ -56,7 +54,9 @@ impl WackerDaemon {
             .write_style(WriteStyle::Never)
             .init();
 
-        let service = ModulesServer::new(server.clone())
+        let db = sled::open(config.db_path.clone())?;
+
+        let service = WackerServer::new(Server::new(config.clone(), db.clone()).await?)
             .send_compressed(CompressionEncoding::Zstd)
             .accept_compressed(CompressionEncoding::Zstd);
 
@@ -68,7 +68,7 @@ impl WackerDaemon {
                 println!();
                 info!("Shutting down the server");
                 remove_file(config.sock_path).expect("failed to remove existing socket file");
-                server.flush_db().await.expect("failed to flush the db");
+                db.flush_async().await.expect("failed to flush the db");
             })
             .await?;
 

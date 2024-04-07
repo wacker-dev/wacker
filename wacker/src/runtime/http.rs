@@ -1,14 +1,15 @@
+use crate::runtime::{Engine, ProgramMeta};
 use anyhow::{bail, Error, Result};
+use async_trait::async_trait;
 use std::fs::File;
 use std::io::Write;
-use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::{
     atomic::{AtomicU64, Ordering},
     Arc,
 };
 use wasmtime::component::{Component, InstancePre, Linker, ResourceTable};
-use wasmtime::{Engine, Store};
+use wasmtime::Store;
 use wasmtime_wasi::{
     bindings, HostOutputStream, StdoutStream, StreamError, StreamResult, Subscribe, WasiCtx, WasiCtxBuilder, WasiView,
 };
@@ -45,11 +46,11 @@ impl WasiHttpView for Host {
 
 #[derive(Clone)]
 pub struct HttpEngine {
-    engine: Engine,
+    engine: wasmtime::Engine,
 }
 
 impl HttpEngine {
-    pub fn new(engine: Engine) -> Self {
+    pub fn new(engine: wasmtime::Engine) -> Self {
         Self { engine }
     }
 
@@ -84,21 +85,25 @@ impl HttpEngine {
         wasmtime_wasi_http::proxy::add_to_linker(linker)?;
         Ok(())
     }
+}
 
-    pub async fn serve(self, path: &str, addr: SocketAddr, mut stdout: File) -> Result<()> {
+#[async_trait]
+impl Engine for HttpEngine {
+    async fn run(&self, meta: ProgramMeta, stdout: File) -> Result<()> {
         use hyper::server::conn::http1;
 
         let mut linker = Linker::new(&self.engine);
         self.add_to_linker(&mut linker)?;
 
-        let component = Component::from_file(&self.engine, path)?;
+        let component = Component::from_file(&self.engine, meta.path)?;
         let instance = linker.instantiate_pre(&component)?;
 
-        let listener = tokio::net::TcpListener::bind(addr).await?;
+        let listener = tokio::net::TcpListener::bind(meta.addr.unwrap()).await?;
 
+        let mut stdout = stdout.try_clone()?;
         stdout.write_all(format!("Serving HTTP on http://{}/\n", listener.local_addr()?).as_bytes())?;
 
-        let handler = ProxyHandler::new(self, instance, stdout);
+        let handler = ProxyHandler::new(self.clone(), instance, stdout);
 
         loop {
             let (stream, _) = listener.accept().await?;
