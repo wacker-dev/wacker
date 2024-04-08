@@ -26,3 +26,4 @@ tokio-stream = { version = "0.1.14", features = ["net"] }
 tonic = { version = "0.11.0", features = ["zstd"] }
 sled = "0.34.7"
 once_cell = "1.19.0"
+ahash = "0.8.11"

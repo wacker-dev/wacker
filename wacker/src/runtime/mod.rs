@@ -1,10 +1,10 @@
 mod http;
 mod wasi;
 
+use ahash::AHashMap;
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fs::File;
 use std::sync::Arc;
 
@@ -23,16 +23,15 @@ pub trait Engine: Send + Sync + 'static {
 pub const PROGRAM_TYPE_WASI: u32 = 0;
 pub const PROGRAM_TYPE_HTTP: u32 = 1;
 
-pub fn new_engines() -> Result<HashMap<u32, Arc<dyn Engine>>> {
+pub fn new_engines() -> Result<AHashMap<u32, Arc<dyn Engine>>> {
     let wasmtime_engine = new_wasmtime_engine()?;
-    let mut engines: HashMap<u32, Arc<dyn Engine>> = HashMap::new();
-    engines.insert(
-        PROGRAM_TYPE_WASI,
-        Arc::new(wasi::WasiEngine::new(wasmtime_engine.clone())),
-    );
-    engines.insert(PROGRAM_TYPE_HTTP, Arc::new(http::HttpEngine::new(wasmtime_engine)));
+    let wasi_engine: Arc<dyn Engine> = Arc::new(wasi::WasiEngine::new(wasmtime_engine.clone()));
+    let http_engine: Arc<dyn Engine> = Arc::new(http::HttpEngine::new(wasmtime_engine));
 
-    Ok(engines)
+    Ok(AHashMap::from([
+        (PROGRAM_TYPE_WASI, wasi_engine),
+        (PROGRAM_TYPE_HTTP, http_engine),
+    ]))
 }
 
 fn new_wasmtime_engine() -> Result<wasmtime::Engine> {
