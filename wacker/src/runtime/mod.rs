@@ -8,8 +8,6 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::sync::Arc;
 
-pub use self::{http::HttpEngine, wasi::WasiEngine};
-
 #[derive(Clone, Default, Serialize, Deserialize)]
 pub struct ProgramMeta {
     pub path: String,
@@ -28,8 +26,11 @@ pub const PROGRAM_TYPE_HTTP: u32 = 1;
 pub fn new_engines() -> Result<HashMap<u32, Arc<dyn Engine>>> {
     let wasmtime_engine = new_wasmtime_engine()?;
     let mut engines: HashMap<u32, Arc<dyn Engine>> = HashMap::new();
-    engines.insert(PROGRAM_TYPE_WASI, Arc::new(WasiEngine::new(wasmtime_engine.clone())));
-    engines.insert(PROGRAM_TYPE_HTTP, Arc::new(HttpEngine::new(wasmtime_engine)));
+    engines.insert(
+        PROGRAM_TYPE_WASI,
+        Arc::new(wasi::WasiEngine::new(wasmtime_engine.clone())),
+    );
+    engines.insert(PROGRAM_TYPE_HTTP, Arc::new(http::HttpEngine::new(wasmtime_engine)));
 
     Ok(engines)
 }

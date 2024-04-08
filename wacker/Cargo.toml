@@ -20,6 +20,7 @@ tokio.workspace = true
 tokio-stream.workspace = true
 tonic.workspace = true
 sled.workspace = true
+once_cell.workspace = true
 
 dirs = "5.0.1"
 wasi-common = { version = "19.0.0", features = ["tokio"] }
@@ -30,7 +31,6 @@ cap-std = "3.0.0"
 rand = "0.8.5"
 tower = "0.4.13"
 prost = "0.12.3"
-const_format = "0.2.32"
 async-stream = "0.3.5"
 hyper = "1.1.0"
 http = "1.1.0"

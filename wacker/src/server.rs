@@ -1,4 +1,3 @@
-use crate::config::*;
 use crate::runtime::{new_engines, Engine, ProgramMeta, PROGRAM_TYPE_HTTP, PROGRAM_TYPE_WASI};
 use crate::utils::generate_random_string;
 use crate::{
@@ -14,7 +13,7 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use std::fs::{remove_file, OpenOptions};
 use std::io::{ErrorKind, SeekFrom, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -31,7 +30,7 @@ pub struct Server {
     db: Db,
     engines: HashMap<u32, Arc<dyn Engine>>,
     programs: Arc<Mutex<HashMap<String, InnerProgram>>>,
-    config: Config,
+    logs_dir: &'static PathBuf,
 }
 
 struct InnerProgram {
@@ -58,12 +57,12 @@ impl TryFrom<&mut InnerProgram> for Program {
 }
 
 impl Server {
-    pub async fn new(config: Config, db: Db) -> Result<Self, Error> {
+    pub async fn new(db: Db, logs_dir: &'static PathBuf) -> Result<Self, Error> {
         let service = Self {
             db,
             engines: new_engines()?,
             programs: Arc::new(Mutex::new(HashMap::new())),
-            config,
+            logs_dir,
         };
         service.load_from_db().await?;
 
@@ -92,7 +91,7 @@ impl Server {
         let mut stdout = OpenOptions::new()
             .create(true)
             .append(true)
-            .open(self.config.logs_dir.join(id.clone()))?;
+            .open(self.logs_dir.join(id.clone()))?;
         let stdout_clone = stdout.try_clone()?;
 
         programs.insert(
@@ -266,7 +265,7 @@ impl Wacker for Server {
                 program.handler.abort();
             }
 
-            if let Err(err) = remove_file(self.config.logs_dir.join(req.id.clone())) {
+            if let Err(err) = remove_file(self.logs_dir.join(req.id.clone())) {
                 if err.kind() != ErrorKind::NotFound {
                     return Err(Status::internal(format!(
                         "failed to remove the log file for {}: {}",
@@ -288,7 +287,7 @@ impl Wacker for Server {
     async fn logs(&self, request: Request<LogRequest>) -> Result<Response<Self::LogsStream>, Status> {
         let req = request.into_inner();
 
-        let mut file = File::open(self.config.logs_dir.join(req.id)).await?;
+        let mut file = File::open(self.logs_dir.join(req.id)).await?;
         let mut contents = String::new();
         let last_position = file.read_to_string(&mut contents).await?;
         let lines: Vec<&str> = contents.split_inclusive('\n').collect();

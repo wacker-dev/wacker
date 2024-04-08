@@ -25,12 +25,12 @@ pub const PROGRAM_STATUS_ERROR: u32 = 2;
 pub const PROGRAM_STATUS_STOPPED: u32 = 3;
 
 pub async fn new_client() -> Result<WackerClient<Channel>> {
-    let config = Config::new()?;
+    let sock_path = get_sock_path()?;
 
     let channel = Endpoint::try_from("http://[::]:50051")?
         .connect_with_connector(service_fn(move |_| {
             // Connect to a Uds socket
-            UnixStream::connect(config.sock_path.to_str().unwrap().to_string())
+            UnixStream::connect(sock_path)
         }))
         .await?;
 
