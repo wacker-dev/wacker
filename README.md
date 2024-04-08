@@ -21,7 +21,7 @@ Start the wacker daemon:
 
 ```
 $ wackerd
-[2023-11-22T07:25:31Z INFO  wackerd] server listening on "/Users/user/.wacker/wacker.sock"
+[2023-11-22 07:25:31 INFO wackerd] server listening on "/Users/user/.wacker/wacker.sock"
 ```
 
 Run a WebAssembly program:
