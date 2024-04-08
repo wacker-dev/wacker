@@ -1,7 +1,7 @@
+use ahash::AHashMap;
 use anyhow::{bail, Result};
 use clap::Parser;
 use once_cell::sync::Lazy;
-use std::collections::HashMap;
 use tabled::{
     settings::{object::Columns, Modify, Padding, Style, Width},
     Table, Tabled,
@@ -24,14 +24,8 @@ struct Program {
     address: String,
 }
 
-static STATUS: Lazy<HashMap<u32, &'static str>> = Lazy::new(|| {
-    let mut table = HashMap::new();
-    table.insert(0, "Running");
-    table.insert(1, "Finished");
-    table.insert(2, "Error");
-    table.insert(3, "Stopped");
-    table
-});
+static STATUS: Lazy<AHashMap<u32, &'static str>> =
+    Lazy::new(|| AHashMap::from([(0, "Running"), (1, "Finished"), (2, "Error"), (3, "Stopped")]));
 
 impl ListCommand {
     pub async fn execute(self, mut client: WackerClient<Channel>) -> Result<()> {

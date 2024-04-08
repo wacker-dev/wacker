@@ -4,18 +4,19 @@ use crate::{
     DeleteRequest, ListResponse, LogRequest, LogResponse, Program, RestartRequest, RunRequest, ServeRequest,
     StopRequest, Wacker, PROGRAM_STATUS_ERROR, PROGRAM_STATUS_FINISHED, PROGRAM_STATUS_RUNNING, PROGRAM_STATUS_STOPPED,
 };
+use ahash::AHashMap;
 use anyhow::{anyhow, Error, Result};
 use async_stream::try_stream;
 use async_trait::async_trait;
 use log::{error, info, warn};
+use parking_lot::Mutex;
 use sled::Db;
-use std::collections::HashMap;
 use std::fmt::Display;
 use std::fs::{remove_file, OpenOptions};
 use std::io::{ErrorKind, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::{
     fs::File,
@@ -28,8 +29,8 @@ use tonic::{Request, Response, Status};
 
 pub struct Server {
     db: Db,
-    engines: HashMap<u32, Arc<dyn Engine>>,
-    programs: Arc<Mutex<HashMap<String, InnerProgram>>>,
+    engines: AHashMap<u32, Arc<dyn Engine>>,
+    programs: Arc<Mutex<AHashMap<String, InnerProgram>>>,
     logs_dir: &'static PathBuf,
 }
 
@@ -61,7 +62,7 @@ impl Server {
         let service = Self {
             db,
             engines: new_engines()?,
-            programs: Arc::new(Mutex::new(HashMap::new())),
+            programs: Arc::new(Mutex::new(AHashMap::new())),
             logs_dir,
         };
         service.load_from_db().await?;
@@ -80,7 +81,7 @@ impl Server {
     }
 
     async fn run_inner(&self, id: String, meta: ProgramMeta) -> Result<()> {
-        let mut programs = self.programs.lock().unwrap();
+        let mut programs = self.programs.lock();
         let (sender, receiver) = oneshot::channel();
         let engine = self
             .engines
@@ -194,7 +195,7 @@ impl Wacker for Server {
 
     async fn list(&self, _: Request<()>) -> Result<Response<ListResponse>, Status> {
         let mut reply = ListResponse { programs: vec![] };
-        let mut programs = self.programs.lock().unwrap();
+        let mut programs = self.programs.lock();
 
         for (_, inner) in programs.iter_mut() {
             match inner.status {
@@ -220,7 +221,7 @@ impl Wacker for Server {
         let req = request.into_inner();
         info!("Stop the program: {}", req.id);
 
-        let mut programs = self.programs.lock().unwrap();
+        let mut programs = self.programs.lock();
         match programs.get_mut(req.id.as_str()) {
             Some(program) => {
                 if !program.handler.is_finished() {
@@ -238,7 +239,7 @@ impl Wacker for Server {
         info!("Restart the program: {}", req.id);
 
         let meta = {
-            let programs = self.programs.lock().unwrap();
+            let programs = self.programs.lock();
             let program = programs.get(req.id.as_str());
             if program.is_none() {
                 return Err(Status::not_found(format!("program {} not exists", req.id)));
@@ -259,7 +260,7 @@ impl Wacker for Server {
         let req = request.into_inner();
         info!("Delete the program: {}", req.id);
 
-        let mut programs = self.programs.lock().unwrap();
+        let mut programs = self.programs.lock();
         if let Some(program) = programs.get(req.id.as_str()) {
             if !program.handler.is_finished() {
                 program.handler.abort();
