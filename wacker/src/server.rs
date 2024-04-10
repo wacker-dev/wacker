@@ -106,7 +106,7 @@ impl Server {
                         Ok(_) => {}
                         Err(e) => {
                             error!("running program {} error: {}", id, e);
-                            if let Err(file_err) = stdout.write_all(e.to_string().as_bytes()) {
+                            if let Err(file_err) = stdout.write_fmt(format_args!("{}\n", e)) {
                                 warn!("write error log failed: {}", file_err);
                             }
                             if sender.send(e).is_err() {
