@@ -8,6 +8,9 @@ pub struct RunCommand {
     /// Program file path
     #[arg(required = true)]
     path: String,
+    /// Arguments to pass to the WebAssembly module.
+    #[arg(trailing_var_arg = true)]
+    args: Vec<String>,
 }
 
 impl RunCommand {
@@ -16,6 +19,7 @@ impl RunCommand {
         match client
             .run(RunRequest {
                 path: self.path.to_string(),
+                args: self.args,
             })
             .await
         {

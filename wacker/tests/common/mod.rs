@@ -1,13 +1,11 @@
 use std::fs::{create_dir_all, remove_dir_all};
-use std::path::PathBuf;
 use std::time::Duration;
-use tokio::net::{UnixListener, UnixStream};
+use tokio::net::UnixListener;
 use tokio::sync::broadcast::{channel, Receiver, Sender};
 use tokio::time::sleep;
 use tokio_stream::wrappers::UnixListenerStream;
-use tonic::transport::{Channel, Endpoint};
-use tower::service_fn;
-use wacker::{new_service, utils::generate_random_string, WackerClient};
+use tonic::transport::Channel;
+use wacker::{new_client_with_path, new_service, utils::generate_random_string, WackerClient};
 
 pub struct Server {
     sender: Sender<()>,
@@ -41,11 +39,7 @@ impl Server {
         println!("server listening on {:?}", sock_path);
         tokio::spawn(
             tonic::transport::Server::builder()
-                .add_service(
-                    new_service(sled::open(db_path).unwrap(), PathBuf::from(logs_dir))
-                        .await
-                        .unwrap(),
-                )
+                .add_service(new_service(sled::open(db_path).unwrap(), logs_dir).await.unwrap())
                 .serve_with_incoming_shutdown(uds_stream, async move {
                     receiver.recv().await.expect("");
                     println!("Shutting down the server");
@@ -55,14 +49,7 @@ impl Server {
     }
 
     pub async fn client(&self) -> WackerClient<Channel> {
-        let path = format!("{}/wacker.sock", self.dir);
-        WackerClient::new(
-            Endpoint::try_from("unix://path")
-                .unwrap()
-                .connect_with_connector(service_fn(move |_| UnixStream::connect(path.clone())))
-                .await
-                .unwrap(),
-        )
+        new_client_with_path(format!("{}/wacker.sock", self.dir)).await.unwrap()
     }
 
     pub async fn shutdown(&self) {

@@ -31,9 +31,11 @@ $ wacker run hello.wasm
 $ wacker run time.wasm
 ```
 
-Where `hello.wasm` is a simple WASM program that prints out `Hello World!` and exits, and `time.wasm` is a long-running program that constantly prints out the current time.
+Where [hello.wasm](https://github.com/iawia002/wasi-examples/tree/main/hello) is a simple WASM program that prints out `Hello, world!` and exits, and [time.wasm](https://github.com/iawia002/wasi-examples/tree/main/time) is a long-running program that constantly prints out the current time.
 
-Serve an HTTP WebAssembly program:
+> You can find more WASI program examples at https://github.com/iawia002/wasi-examples.
+
+Serve an [HTTP WebAssembly program](https://github.com/iawia002/wasi-examples/tree/main/http):
 
 ```
 $ wacker serve hello_wasi_http.wasm --addr 127.0.0.1:8081
@@ -53,7 +55,7 @@ Fetch the logs:
 
 ```
 $ wacker logs hello-w0AqXnf
-Hello World!
+Hello, world!
 
 $ wacker logs -f --tail 5 time-xhQVmjU
 current time: 2023-11-22 07:42:34

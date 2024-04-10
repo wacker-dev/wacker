@@ -21,12 +21,20 @@ async fn run() -> Result<()> {
     client
         .run(RunRequest {
             path: "./tests/wasm/hello.wasm".parse()?,
+            args: vec![],
         })
         .await?;
-    sleep(Duration::from_secs(1)).await;
+    client
+        .run(RunRequest {
+            path: "./tests/wasm/cli.wasm".parse()?,
+            args: vec!["-a=b".to_string(), "-c=d".to_string()],
+        })
+        .await?;
+    sleep(Duration::from_secs(5)).await;
 
     let response = client.list(()).await?.into_inner();
     assert_eq!(response.programs[0].status, PROGRAM_STATUS_FINISHED);
+    assert_eq!(response.programs[1].status, PROGRAM_STATUS_FINISHED);
 
     server.shutdown().await;
     Ok(())
@@ -44,7 +52,7 @@ async fn serve() -> Result<()> {
             addr: "localhost:8080".to_string(),
         })
         .await?;
-    sleep(Duration::from_secs(5)).await;
+    sleep(Duration::from_secs(10)).await;
 
     let http_client = Client::new();
     let params = HashMap::from([("hello", "world")]);
@@ -73,6 +81,7 @@ async fn list() -> Result<()> {
     client
         .run(RunRequest {
             path: "./tests/wasm/hello.wasm".parse()?,
+            args: vec![],
         })
         .await?;
 
@@ -92,6 +101,7 @@ async fn stop() -> Result<()> {
     let response = client
         .run(RunRequest {
             path: "./tests/wasm/time.wasm".parse()?,
+            args: vec![],
         })
         .await?
         .into_inner();
@@ -116,6 +126,7 @@ async fn restart() -> Result<()> {
     let run_resp = client
         .run(RunRequest {
             path: "./tests/wasm/hello.wasm".parse()?,
+            args: vec![],
         })
         .await?
         .into_inner();
@@ -146,6 +157,7 @@ async fn delete() -> Result<()> {
     let response = client
         .run(RunRequest {
             path: "./tests/wasm/hello.wasm".parse()?,
+            args: vec![],
         })
         .await?
         .into_inner();
@@ -169,6 +181,7 @@ async fn logs() -> Result<()> {
     let response = client
         .run(RunRequest {
             path: "./tests/wasm/hello.wasm".parse()?,
+            args: vec![],
         })
         .await?
         .into_inner();

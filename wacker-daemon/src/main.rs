@@ -3,7 +3,7 @@ use chrono::Local;
 use clap::Parser;
 use env_logger::{Builder, WriteStyle};
 use log::{info, LevelFilter};
-use std::fs::{create_dir, create_dir_all, remove_file};
+use std::fs::{create_dir_all, remove_file};
 use std::io::Write;
 use tokio::net::UnixListener;
 use tokio::signal;
@@ -27,13 +27,9 @@ impl WackerDaemon {
             bail!("wackerd socket file exists, is wackerd already running?");
         }
 
-        let parent_path = sock_path.parent().unwrap();
-        if !parent_path.exists() {
-            create_dir_all(parent_path)?;
-        }
         let logs_dir = get_logs_dir()?;
         if !logs_dir.exists() {
-            create_dir(logs_dir)?;
+            create_dir_all(logs_dir)?;
         }
 
         let uds = UnixListener::bind(sock_path)?;
@@ -58,7 +54,7 @@ impl WackerDaemon {
 
         info!("server listening on {:?}", sock_path);
         Ok(tonic::transport::Server::builder()
-            .add_service(new_service(db.clone(), logs_dir.clone()).await?)
+            .add_service(new_service(db.clone(), logs_dir).await?)
             .serve_with_incoming_shutdown(uds_stream, async {
                 signal::ctrl_c().await.expect("failed to listen for event");
                 println!();

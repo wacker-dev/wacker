@@ -16,6 +16,7 @@ service Wacker {
 
 message RunRequest {
   string path = 1;
+  repeated string args = 2;
 }
 
 message ServeRequest {

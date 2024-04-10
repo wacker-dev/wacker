@@ -2,8 +2,8 @@ use crate::runtime::{new_engines, Engine, ProgramMeta, PROGRAM_TYPE_HTTP, PROGRA
 use crate::utils::generate_random_string;
 use crate::{
     DeleteRequest, ListResponse, LogRequest, LogResponse, Program, ProgramResponse, RestartRequest, RunRequest,
-    ServeRequest, StopRequest, Wacker, WackerServer, PROGRAM_STATUS_ERROR, PROGRAM_STATUS_FINISHED,
-    PROGRAM_STATUS_RUNNING, PROGRAM_STATUS_STOPPED,
+    ServeRequest, StopRequest, Wacker, PROGRAM_STATUS_ERROR, PROGRAM_STATUS_FINISHED, PROGRAM_STATUS_RUNNING,
+    PROGRAM_STATUS_STOPPED,
 };
 use ahash::AHashMap;
 use anyhow::{anyhow, Error, Result};
@@ -26,7 +26,7 @@ use tokio::{
     task, time,
 };
 use tokio_stream::{wrappers::ReceiverStream, Stream, StreamExt};
-use tonic::{codec::CompressionEncoding, Request, Response, Status};
+use tonic::{Request, Response, Status};
 
 pub struct Server {
     db: Db,
@@ -58,19 +58,13 @@ impl TryFrom<&mut InnerProgram> for Program {
     }
 }
 
-pub async fn new_service(db: Db, logs_dir: PathBuf) -> Result<WackerServer<Server>> {
-    Ok(WackerServer::new(Server::new(db, logs_dir).await?)
-        .send_compressed(CompressionEncoding::Zstd)
-        .accept_compressed(CompressionEncoding::Zstd))
-}
-
 impl Server {
-    pub async fn new(db: Db, logs_dir: PathBuf) -> Result<Self> {
+    pub async fn new<P: AsRef<Path>>(db: Db, logs_dir: P) -> Result<Self> {
         let service = Self {
             db,
             engines: new_engines()?,
             programs: Arc::new(Mutex::new(AHashMap::new())),
-            logs_dir,
+            logs_dir: logs_dir.as_ref().to_path_buf(),
         };
         service.load_from_db().await?;
 
@@ -93,8 +87,8 @@ impl Server {
         let engine = self
             .engines
             .get(&meta.program_type)
-            .ok_or(anyhow!("unknown program type {}", meta.program_type))?;
-        let engine_clone = engine.clone();
+            .ok_or(anyhow!("unknown program type {}", meta.program_type))?
+            .clone();
 
         let mut stdout = OpenOptions::new()
             .create(true)
@@ -109,7 +103,7 @@ impl Server {
                 meta: meta.clone(),
                 receiver,
                 handler: task::spawn(async move {
-                    match engine_clone.run(meta, stdout_clone).await {
+                    match engine.run(meta, stdout_clone).await {
                         Ok(_) => {}
                         Err(e) => {
                             error!("running program {} error: {}", id, e);
@@ -169,6 +163,7 @@ impl Wacker for Server {
                 path: req.path,
                 program_type: PROGRAM_TYPE_WASI,
                 addr: None,
+                args: req.args,
             },
         )
         .await
@@ -195,6 +190,7 @@ impl Wacker for Server {
                 path: req.path,
                 program_type: PROGRAM_TYPE_HTTP,
                 addr: Option::from(req.addr),
+                args: vec![],
             },
         )
         .await
