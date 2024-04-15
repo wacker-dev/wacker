@@ -1,9 +1,8 @@
 use crate::runtime::{Engine, ProgramMeta};
-use anyhow::{bail, Error, Result};
+use anyhow::{anyhow, bail, Error, Result};
 use async_trait::async_trait;
 use std::fs::File;
 use std::io::Write;
-use std::pin::Pin;
 use std::sync::{
     atomic::{AtomicU64, Ordering},
     Arc,
@@ -61,7 +60,7 @@ impl HttpEngine {
         builder.stdout(LogStream { output: stdout });
         builder.stderr(LogStream { output: stderr });
 
-        builder.envs(&[("REQUEST_ID", req_id.to_string())]);
+        builder.env("REQUEST_ID", req_id.to_string());
 
         let host = Host {
             table: ResourceTable::new(),
@@ -101,17 +100,25 @@ impl Engine for HttpEngine {
         let listener = tokio::net::TcpListener::bind(meta.addr.unwrap()).await?;
 
         let mut stdout = stdout.try_clone()?;
-        stdout.write_all(format!("Serving HTTP on http://{}/\n", listener.local_addr()?).as_bytes())?;
+        stdout.write_fmt(format_args!("Serving HTTP on http://{}/\n", listener.local_addr()?))?;
 
-        let handler = ProxyHandler::new(self.clone(), instance, stdout);
+        let handler = ProxyHandler::new(self.clone(), instance, stdout.try_clone()?);
 
         loop {
             let (stream, _) = listener.accept().await?;
             let stream = TokioIo::new(stream);
             let h = handler.clone();
+            let mut stdout = stdout.try_clone()?;
             tokio::task::spawn(async move {
-                if let Err(e) = http1::Builder::new().keep_alive(true).serve_connection(stream, h).await {
-                    eprintln!("error: {e:?}");
+                if let Err(e) = http1::Builder::new()
+                    .keep_alive(true)
+                    .serve_connection(
+                        stream,
+                        hyper::service::service_fn(move |req| handle_request(h.clone(), req)),
+                    )
+                    .await
+                {
+                    let _ = stdout.write_fmt(format_args!("serve error: {e:?}\n"));
                 }
             });
         }
@@ -147,77 +154,80 @@ impl ProxyHandler {
 
 type Request = hyper::Request<hyper::body::Incoming>;
 
-impl hyper::service::Service<Request> for ProxyHandler {
-    type Response = hyper::Response<HyperOutgoingBody>;
-    type Error = Error;
-    type Future = Pin<Box<dyn std::future::Future<Output = Result<Self::Response>> + Send>>;
+async fn handle_request(ProxyHandler(inner): ProxyHandler, req: Request) -> Result<hyper::Response<HyperOutgoingBody>> {
+    use http_body_util::BodyExt;
 
-    fn call(&self, req: Request) -> Self::Future {
-        use http_body_util::BodyExt;
+    let (sender, receiver) = tokio::sync::oneshot::channel();
 
-        let ProxyHandler(inner) = self.clone();
+    let task = tokio::task::spawn(async move {
+        let req_id = inner.next_req_id();
+        let (mut parts, body) = req.into_parts();
 
-        let (sender, receiver) = tokio::sync::oneshot::channel();
+        parts.uri = {
+            let uri_parts = parts.uri.into_parts();
 
-        tokio::task::spawn(async move {
-            let req_id = inner.next_req_id();
-            let (mut parts, body) = req.into_parts();
+            let scheme = uri_parts.scheme.unwrap_or(http::uri::Scheme::HTTP);
 
-            parts.uri = {
-                let uri_parts = parts.uri.into_parts();
-
-                let scheme = uri_parts.scheme.unwrap_or(http::uri::Scheme::HTTP);
-
-                let host = if let Some(val) = parts.headers.get(hyper::header::HOST) {
-                    std::str::from_utf8(val.as_bytes()).map_err(|_| http_types::ErrorCode::HttpRequestUriInvalid)?
-                } else {
-                    uri_parts
-                        .authority
-                        .as_ref()
-                        .ok_or(http_types::ErrorCode::HttpRequestUriInvalid)?
-                        .host()
-                };
-
-                let path_with_query = uri_parts
-                    .path_and_query
-                    .ok_or(http_types::ErrorCode::HttpRequestUriInvalid)?;
-
-                hyper::Uri::builder()
-                    .scheme(scheme)
-                    .authority(host)
-                    .path_and_query(path_with_query)
-                    .build()
-                    .map_err(|_| http_types::ErrorCode::HttpRequestUriInvalid)?
+            let host = if let Some(val) = parts.headers.get(hyper::header::HOST) {
+                std::str::from_utf8(val.as_bytes()).map_err(|_| http_types::ErrorCode::HttpRequestUriInvalid)?
+            } else {
+                uri_parts
+                    .authority
+                    .as_ref()
+                    .ok_or(http_types::ErrorCode::HttpRequestUriInvalid)?
+                    .host()
             };
 
-            let req = hyper::Request::from_parts(parts, body.map_err(hyper_response_error).boxed());
+            let path_with_query = uri_parts
+                .path_and_query
+                .ok_or(http_types::ErrorCode::HttpRequestUriInvalid)?;
 
-            let mut stdout = inner.stdout.try_clone()?;
-            stdout.write_all(format!("Request {req_id} handling {} to {}\n", req.method(), req.uri()).as_bytes())?;
+            hyper::Uri::builder()
+                .scheme(scheme)
+                .authority(host)
+                .path_and_query(path_with_query)
+                .build()
+                .map_err(|_| http_types::ErrorCode::HttpRequestUriInvalid)?
+        };
 
-            let mut store = inner.http_engine.new_store(req_id, stdout)?;
+        let req = hyper::Request::from_parts(parts, body.map_err(hyper_response_error).boxed());
 
-            let req = store.data_mut().new_incoming_request(req)?;
-            let out = store.data_mut().new_response_outparam(sender)?;
+        let mut stdout = inner.stdout.try_clone()?;
+        stdout.write_fmt(format_args!(
+            "Request {req_id} handling {} to {}\n",
+            req.method(),
+            req.uri()
+        ))?;
 
-            let (proxy, _inst) =
-                wasmtime_wasi_http::proxy::Proxy::instantiate_pre(&mut store, &inner.instance_pre).await?;
+        let mut store = inner.http_engine.new_store(req_id, stdout)?;
 
-            if let Err(e) = proxy.wasi_http_incoming_handler().call_handle(store, req, out).await {
-                log::error!("[{req_id}] :: {:#?}", e);
-                return Err(e);
-            }
+        let req = store.data_mut().new_incoming_request(req)?;
+        let out = store.data_mut().new_response_outparam(sender)?;
 
-            Ok(())
-        });
+        let (proxy, _) = wasmtime_wasi_http::proxy::Proxy::instantiate_pre(&mut store, &inner.instance_pre).await?;
+        proxy.wasi_http_incoming_handler().call_handle(store, req, out).await
+    });
 
-        Box::pin(async move {
-            match receiver.await {
-                Ok(Ok(resp)) => Ok(resp),
-                Ok(Err(e)) => Err(e.into()),
-                Err(_) => bail!("guest never invoked `response-outparam::set` method"),
-            }
-        })
+    match receiver.await {
+        Ok(Ok(resp)) => Ok(resp),
+        Ok(Err(e)) => Err(e.into()),
+        Err(_) => {
+            // An error in the receiver (`RecvError`) only indicates that the
+            // task exited before a response was sent (i.e., the sender was
+            // dropped); it does not describe the underlying cause of failure.
+            // Instead we retrieve and propagate the error from inside the task
+            // which should more clearly tell the user what went wrong. Note
+            // that we assume the task has already exited at this point so the
+            // `await` should resolve immediately.
+            let e = match task.await {
+                Ok(r) => match r {
+                    Ok(_) => anyhow!("if the receiver has an error, the task must have failed"),
+                    Err(e) => e,
+                },
+                Err(e) => e.into(),
+            };
+            bail!("guest never invoked `response-outparam::set` method: {e:?}")
+        }
     }
 }
 
