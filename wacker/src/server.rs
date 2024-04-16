@@ -2,7 +2,8 @@ use crate::runtime::{new_engines, Engine, ProgramMeta, PROGRAM_TYPE_HTTP, PROGRA
 use crate::utils::generate_random_string;
 use crate::{
     DeleteRequest, ListResponse, LogRequest, LogResponse, Program, RestartRequest, RunRequest, ServeRequest,
-    StopRequest, Wacker, PROGRAM_STATUS_ERROR, PROGRAM_STATUS_FINISHED, PROGRAM_STATUS_RUNNING, PROGRAM_STATUS_STOPPED,
+    StopRequest, Wacker, WackerServer, PROGRAM_STATUS_ERROR, PROGRAM_STATUS_FINISHED, PROGRAM_STATUS_RUNNING,
+    PROGRAM_STATUS_STOPPED,
 };
 use ahash::AHashMap;
 use anyhow::{anyhow, Error, Result};
@@ -25,13 +26,13 @@ use tokio::{
     task, time,
 };
 use tokio_stream::{wrappers::ReceiverStream, Stream, StreamExt};
-use tonic::{Request, Response, Status};
+use tonic::{codec::CompressionEncoding, Request, Response, Status};
 
 pub struct Server {
     db: Db,
     engines: AHashMap<u32, Arc<dyn Engine>>,
     programs: Arc<Mutex<AHashMap<String, InnerProgram>>>,
-    logs_dir: &'static PathBuf,
+    logs_dir: PathBuf,
 }
 
 struct InnerProgram {
@@ -57,8 +58,14 @@ impl TryFrom<&mut InnerProgram> for Program {
     }
 }
 
+pub async fn new_service(db: Db, logs_dir: PathBuf) -> Result<WackerServer<Server>> {
+    Ok(WackerServer::new(Server::new(db, logs_dir).await?)
+        .send_compressed(CompressionEncoding::Zstd)
+        .accept_compressed(CompressionEncoding::Zstd))
+}
+
 impl Server {
-    pub async fn new(db: Db, logs_dir: &'static PathBuf) -> Result<Self, Error> {
+    pub async fn new(db: Db, logs_dir: PathBuf) -> Result<Self> {
         let service = Self {
             db,
             engines: new_engines()?,
