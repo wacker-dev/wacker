@@ -8,8 +8,7 @@ use std::io::Write;
 use tokio::net::UnixListener;
 use tokio::signal;
 use tokio_stream::wrappers::UnixListenerStream;
-use tonic::codec::CompressionEncoding;
-use wacker::{get_db_path, get_logs_dir, get_sock_path, Server, WackerServer};
+use wacker::{get_db_path, get_logs_dir, get_sock_path, new_service};
 
 #[derive(Parser)]
 #[command(name = "wackerd")]
@@ -57,13 +56,9 @@ impl WackerDaemon {
 
         let db = sled::open(get_db_path()?)?;
 
-        let service = WackerServer::new(Server::new(db.clone(), logs_dir).await?)
-            .send_compressed(CompressionEncoding::Zstd)
-            .accept_compressed(CompressionEncoding::Zstd);
-
         info!("server listening on {:?}", sock_path);
         tonic::transport::Server::builder()
-            .add_service(service)
+            .add_service(new_service(db.clone(), logs_dir.clone()).await?)
             .serve_with_incoming_shutdown(uds_stream, async {
                 signal::ctrl_c().await.expect("failed to listen for event");
                 println!();
