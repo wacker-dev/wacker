@@ -7,3 +7,13 @@ pub fn generate_random_string(length: usize) -> String {
         .map(char::from)
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_generate_random_string() {
+        assert_eq!(generate_random_string(5).len(), 5);
+    }
+}
