@@ -15,7 +15,7 @@ use tower::service_fn;
 pub use self::config::*;
 pub use self::proto::{
     wacker_client::WackerClient, wacker_server::Wacker, wacker_server::WackerServer, DeleteRequest, ListResponse,
-    LogRequest, LogResponse, Program, RestartRequest, RunRequest, ServeRequest, StopRequest,
+    LogRequest, LogResponse, Program, ProgramResponse, RestartRequest, RunRequest, ServeRequest, StopRequest,
 };
 pub use self::server::*;
 
