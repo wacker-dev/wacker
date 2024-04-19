@@ -1,7 +1,7 @@
 mod config;
 mod runtime;
 mod server;
-mod utils;
+pub mod utils;
 mod proto {
     tonic::include_proto!("wacker");
 }

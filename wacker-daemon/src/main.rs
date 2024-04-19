@@ -57,7 +57,7 @@ impl WackerDaemon {
         let db = sled::open(get_db_path()?)?;
 
         info!("server listening on {:?}", sock_path);
-        tonic::transport::Server::builder()
+        Ok(tonic::transport::Server::builder()
             .add_service(new_service(db.clone(), logs_dir.clone()).await?)
             .serve_with_incoming_shutdown(uds_stream, async {
                 signal::ctrl_c().await.expect("failed to listen for event");
@@ -66,9 +66,7 @@ impl WackerDaemon {
                 remove_file(sock_path).expect("failed to remove existing socket file");
                 db.flush_async().await.expect("failed to flush the db");
             })
-            .await?;
-
-        Ok(())
+            .await?)
     }
 }
 

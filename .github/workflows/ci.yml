@@ -2,8 +2,8 @@ name: CI
 on:
   push:
     branches:
-    - 'main'
-    - 'release-**'
+      - 'main'
+      - 'release-**'
   pull_request:
 jobs:
   ci:
@@ -11,13 +11,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-    - uses: actions/checkout@v4
-    - uses: dtolnay/rust-toolchain@stable
-      with:
-        components: clippy, rustfmt
-    - name: Install Protoc
-      uses: arduino/setup-protoc@v3
-    - name: cargo fmt
-      run: cargo fmt --all -- --check
-    - name: cargo clippy
-      run: cargo clippy --all-targets --all-features -- -D warnings
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v3
+      - name: cargo fmt
+        run: cargo fmt --all -- --check
+      - name: cargo clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: cargo test
+        run: cargo test --workspace -- --test-threads=2
