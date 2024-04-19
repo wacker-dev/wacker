@@ -1,9 +1,9 @@
 use crate::runtime::{new_engines, Engine, ProgramMeta, PROGRAM_TYPE_HTTP, PROGRAM_TYPE_WASI};
 use crate::utils::generate_random_string;
 use crate::{
-    DeleteRequest, ListResponse, LogRequest, LogResponse, Program, RestartRequest, RunRequest, ServeRequest,
-    StopRequest, Wacker, WackerServer, PROGRAM_STATUS_ERROR, PROGRAM_STATUS_FINISHED, PROGRAM_STATUS_RUNNING,
-    PROGRAM_STATUS_STOPPED,
+    DeleteRequest, ListResponse, LogRequest, LogResponse, Program, ProgramResponse, RestartRequest, RunRequest,
+    ServeRequest, StopRequest, Wacker, WackerServer, PROGRAM_STATUS_ERROR, PROGRAM_STATUS_FINISHED,
+    PROGRAM_STATUS_RUNNING, PROGRAM_STATUS_STOPPED,
 };
 use ahash::AHashMap;
 use anyhow::{anyhow, Error, Result};
@@ -130,12 +130,12 @@ impl Server {
         Ok(())
     }
 
-    async fn update_db_and_run(&self, id: String, meta: ProgramMeta) -> Result<Response<()>, Status> {
+    async fn update_db_and_run(&self, id: String, meta: ProgramMeta) -> Result<Response<ProgramResponse>, Status> {
         match bincode::serialize(&meta) {
             Ok(bytes) => {
                 self.db.insert(id.as_str(), bytes).map_err(to_status)?;
-                self.run_inner(id, meta).await.map_err(to_status)?;
-                Ok(Response::new(()))
+                self.run_inner(id.clone(), meta).await.map_err(to_status)?;
+                Ok(Response::new(ProgramResponse { id }))
             }
             Err(err) => Err(Status::internal(err.to_string())),
         }
@@ -148,7 +148,7 @@ fn to_status<E: Display>(err: E) -> Status {
 
 #[async_trait]
 impl Wacker for Server {
-    async fn run(&self, request: Request<RunRequest>) -> Result<Response<()>, Status> {
+    async fn run(&self, request: Request<RunRequest>) -> Result<Response<ProgramResponse>, Status> {
         let req = request.into_inner();
 
         let file_path = Path::new(&req.path);
@@ -174,7 +174,7 @@ impl Wacker for Server {
         .await
     }
 
-    async fn serve(&self, request: Request<ServeRequest>) -> Result<Response<()>, Status> {
+    async fn serve(&self, request: Request<ServeRequest>) -> Result<Response<ProgramResponse>, Status> {
         let req = request.into_inner();
 
         let file_path = Path::new(&req.path);
