@@ -1,6 +1,10 @@
-use crate::runtime::{Engine, ProgramMeta};
-use anyhow::{anyhow, bail, Error, Result};
+use crate::runtime::{
+    logs::LogStream,
+    {Engine, ProgramMeta},
+};
+use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
+use hyper::Request;
 use std::fs::File;
 use std::io::Write;
 use std::sync::{
@@ -9,9 +13,7 @@ use std::sync::{
 };
 use wasmtime::component::{Component, InstancePre, Linker, ResourceTable};
 use wasmtime::Store;
-use wasmtime_wasi::{
-    bindings, HostOutputStream, StdoutStream, StreamError, StreamResult, Subscribe, WasiCtx, WasiCtxBuilder, WasiView,
-};
+use wasmtime_wasi::{bindings, WasiCtx, WasiCtxBuilder, WasiView};
 use wasmtime_wasi_http::{
     bindings::http::types as http_types, body::HyperOutgoingBody, hyper_response_error, io::TokioIo, WasiHttpCtx,
     WasiHttpView,
@@ -152,9 +154,10 @@ impl ProxyHandler {
     }
 }
 
-type Request = hyper::Request<hyper::body::Incoming>;
-
-async fn handle_request(ProxyHandler(inner): ProxyHandler, req: Request) -> Result<hyper::Response<HyperOutgoingBody>> {
+async fn handle_request(
+    ProxyHandler(inner): ProxyHandler,
+    req: Request<hyper::body::Incoming>,
+) -> Result<hyper::Response<HyperOutgoingBody>> {
     use http_body_util::BodyExt;
 
     let (sender, receiver) = tokio::sync::oneshot::channel();
@@ -190,7 +193,7 @@ async fn handle_request(ProxyHandler(inner): ProxyHandler, req: Request) -> Resu
                 .map_err(|_| http_types::ErrorCode::HttpRequestUriInvalid)?
         };
 
-        let req = hyper::Request::from_parts(parts, body.map_err(hyper_response_error).boxed());
+        let req = Request::from_parts(parts, body.map_err(hyper_response_error).boxed());
 
         let mut stdout = inner.stdout.try_clone()?;
         stdout.write_fmt(format_args!(
@@ -229,41 +232,4 @@ async fn handle_request(ProxyHandler(inner): ProxyHandler, req: Request) -> Resu
             bail!("guest never invoked `response-outparam::set` method: {e:?}")
         }
     }
-}
-
-struct LogStream {
-    output: File,
-}
-
-impl StdoutStream for LogStream {
-    fn stream(&self) -> Box<dyn HostOutputStream> {
-        Box::new(LogStream {
-            output: self.output.try_clone().expect(""),
-        })
-    }
-
-    fn isatty(&self) -> bool {
-        false
-    }
-}
-
-impl HostOutputStream for LogStream {
-    fn write(&mut self, bytes: bytes::Bytes) -> StreamResult<()> {
-        self.output
-            .write_all(bytes.as_ref())
-            .map_err(|e| StreamError::LastOperationFailed(Error::from(e)))
-    }
-
-    fn flush(&mut self) -> StreamResult<()> {
-        Ok(())
-    }
-
-    fn check_write(&mut self) -> StreamResult<usize> {
-        Ok(1024 * 1024)
-    }
-}
-
-#[async_trait::async_trait]
-impl Subscribe for LogStream {
-    async fn ready(&mut self) {}
 }

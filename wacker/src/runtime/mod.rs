@@ -1,4 +1,5 @@
 mod http;
+mod logs;
 mod wasi;
 
 use ahash::AHashMap;
@@ -13,6 +14,7 @@ pub struct ProgramMeta {
     pub path: String,
     pub program_type: u32,
     pub addr: Option<String>,
+    pub args: Vec<String>,
 }
 
 #[async_trait]
