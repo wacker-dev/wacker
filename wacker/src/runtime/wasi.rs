@@ -55,6 +55,9 @@ impl WasiEngine {
 #[async_trait]
 impl Engine for WasiEngine {
     async fn run(&self, meta: ProgramMeta, stdout: File) -> Result<()> {
+        let mut args = meta.args;
+        args.insert(0, meta.path.clone());
+
         match self.load_module_contents(&self.engine, Path::new(&meta.path))? {
             RunTarget::Core(module) => {
                 let stderr = stdout.try_clone()?;
@@ -68,7 +71,7 @@ impl Engine for WasiEngine {
                     .inherit_stdin()
                     .stdout(Box::new(wasi_stdout))
                     .stderr(Box::new(wasi_stderr))
-                    .args(meta.args.as_ref())?
+                    .args(args.as_ref())?
                     .inherit_env()?
                     .build();
                 let mut store = Store::new(&self.engine, wasi);
@@ -106,7 +109,7 @@ impl Engine for WasiEngine {
                     .inherit_stdin()
                     .stdout(LogStream { output: stdout })
                     .stderr(LogStream { output: stderr })
-                    .args(meta.args.as_ref())
+                    .args(args.as_ref())
                     .inherit_env()
                     .build();
                 let mut store = Store::new(
