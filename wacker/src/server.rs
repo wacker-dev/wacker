@@ -223,67 +223,75 @@ impl Wacker for Server {
 
     async fn stop(&self, request: Request<StopRequest>) -> Result<Response<()>, Status> {
         let req = request.into_inner();
-        info!("Stop the program: {}", req.id);
-
         let mut programs = self.programs.lock();
-        match programs.get_mut(req.id.as_str()) {
-            Some(program) => {
-                if !program.handler.is_finished() {
-                    program.handler.abort();
-                    program.status = PROGRAM_STATUS_STOPPED;
+
+        for id in req.ids {
+            info!("Stop the program: {}", id);
+
+            match programs.get_mut(id.as_str()) {
+                Some(program) => {
+                    if !program.handler.is_finished() {
+                        program.handler.abort();
+                        program.status = PROGRAM_STATUS_STOPPED;
+                    }
                 }
-                Ok(Response::new(()))
+                None => return Err(Status::not_found(format!("program {} not exists", id))),
             }
-            None => Err(Status::not_found(format!("program {} not exists", req.id))),
         }
+        Ok(Response::new(()))
     }
 
     async fn restart(&self, request: Request<RestartRequest>) -> Result<Response<()>, Status> {
         let req = request.into_inner();
-        info!("Restart the program: {}", req.id);
 
-        let meta = {
-            let programs = self.programs.lock();
-            let program = programs.get(req.id.as_str());
-            if program.is_none() {
-                return Err(Status::not_found(format!("program {} not exists", req.id)));
-            }
+        for id in req.ids {
+            info!("Restart the program: {}", id);
 
-            let program = program.unwrap();
-            if !program.handler.is_finished() {
-                program.handler.abort();
-            }
-            program.meta.clone()
-        };
+            let meta = {
+                let programs = self.programs.lock();
+                let program = programs.get(id.as_str());
+                if program.is_none() {
+                    return Err(Status::not_found(format!("program {} not exists", id)));
+                }
 
-        self.run_inner(req.id, meta).await.map_err(to_status)?;
+                let program = program.unwrap();
+                if !program.handler.is_finished() {
+                    program.handler.abort();
+                }
+                program.meta.clone()
+            };
+
+            self.run_inner(id, meta).await.map_err(to_status)?;
+        }
         Ok(Response::new(()))
     }
 
     async fn delete(&self, request: Request<DeleteRequest>) -> Result<Response<()>, Status> {
         let req = request.into_inner();
-        info!("Delete the program: {}", req.id);
-
         let mut programs = self.programs.lock();
-        if let Some(program) = programs.get(req.id.as_str()) {
-            if !program.handler.is_finished() {
-                program.handler.abort();
-            }
 
-            if let Err(err) = remove_file(self.logs_dir.join(req.id.clone())) {
-                if err.kind() != ErrorKind::NotFound {
-                    return Err(Status::internal(format!(
-                        "failed to remove the log file for {}: {}",
-                        req.id.clone(),
-                        err
-                    )));
+        for id in req.ids {
+            info!("Delete the program: {}", id);
+
+            if let Some(program) = programs.get(id.as_str()) {
+                if !program.handler.is_finished() {
+                    program.handler.abort();
                 }
+
+                if let Err(err) = remove_file(self.logs_dir.join(id.as_str())) {
+                    if err.kind() != ErrorKind::NotFound {
+                        return Err(Status::internal(format!(
+                            "failed to remove the log file for {}: {}",
+                            id.as_str(),
+                            err
+                        )));
+                    }
+                }
+
+                self.db.remove(id.as_str()).map_err(to_status)?;
+                programs.remove(id.as_str());
             }
-
-            self.db.remove(req.id.clone()).map_err(to_status)?;
-            programs.remove(req.id.clone().as_str());
         }
-
         Ok(Response::new(()))
     }
 

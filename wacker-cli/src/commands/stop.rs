@@ -5,15 +5,15 @@ use wacker::{Client, StopRequest};
 
 #[derive(Parser)]
 pub struct StopCommand {
-    /// Program ID
-    #[arg(required = true)]
-    id: String,
+    /// Program IDs
+    #[arg(required = true, value_name = "IDs")]
+    ids: Vec<String>,
 }
 
 impl StopCommand {
     /// Executes the command.
     pub async fn execute(self, mut client: Client<Channel>) -> Result<()> {
-        match client.stop(StopRequest { id: self.id }).await {
+        match client.stop(StopRequest { ids: self.ids }).await {
             Ok(_) => Ok(()),
             Err(err) => Err(anyhow!(err.message().to_string())),
         }

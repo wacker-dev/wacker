@@ -26,11 +26,11 @@ enum Subcommand {
     /// Lists running WebAssembly programs
     #[command(visible_alias = "ps")]
     List(commands::ListCommand),
-    /// Stops a WebAssembly program
+    /// Stops WebAssembly programs
     Stop(commands::StopCommand),
-    /// Restarts a WebAssembly program
+    /// Restarts WebAssembly programs
     Restart(commands::RestartCommand),
-    /// Deletes a WebAssembly program
+    /// Deletes WebAssembly programs
     #[command(visible_alias = "rm")]
     Delete(commands::DeleteCommand),
     /// Fetches logs of a program
