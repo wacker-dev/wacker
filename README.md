@@ -85,9 +85,9 @@ Commands:
   run      Runs a WebAssembly program
   serve    Serves an HTTP WebAssembly program
   list     Lists running WebAssembly programs [aliases: ps]
-  stop     Stops a WebAssembly program
-  restart  Restarts a WebAssembly program
-  delete   Deletes a WebAssembly program [aliases: rm]
+  stop     Stops WebAssembly programs
+  restart  Restarts WebAssembly programs
+  delete   Deletes WebAssembly programs [aliases: rm]
   logs     Fetches logs of a program [aliases: log]
   help     Print this message or the help of the given subcommand(s)
 

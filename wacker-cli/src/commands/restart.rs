@@ -5,14 +5,14 @@ use wacker::{Client, RestartRequest};
 
 #[derive(Parser)]
 pub struct RestartCommand {
-    /// Program ID
-    #[arg(required = true)]
-    id: String,
+    /// Program IDs
+    #[arg(required = true, value_name = "IDs")]
+    ids: Vec<String>,
 }
 
 impl RestartCommand {
     pub async fn execute(self, mut client: Client<Channel>) -> Result<()> {
-        match client.restart(RestartRequest { id: self.id }).await {
+        match client.restart(RestartRequest { ids: self.ids }).await {
             Ok(_) => Ok(()),
             Err(err) => Err(anyhow!(err.message().to_string())),
         }

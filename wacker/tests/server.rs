@@ -107,7 +107,7 @@ async fn stop() -> Result<()> {
         .into_inner();
     sleep(Duration::from_secs(1)).await;
 
-    client.stop(StopRequest { id: response.id }).await?;
+    client.stop(StopRequest { ids: vec![response.id] }).await?;
     sleep(Duration::from_secs(1)).await;
 
     let response = client.list(()).await?.into_inner();
@@ -139,9 +139,13 @@ async fn restart() -> Result<()> {
         .into_inner();
     sleep(Duration::from_secs(1)).await;
 
-    let response = client.restart(RestartRequest { id: run_resp.id }).await;
+    let response = client.restart(RestartRequest { ids: vec![run_resp.id] }).await;
     assert!(response.is_ok());
-    let response = client.restart(RestartRequest { id: serve_resp.id }).await;
+    let response = client
+        .restart(RestartRequest {
+            ids: vec![serve_resp.id],
+        })
+        .await;
     assert!(response.is_ok());
 
     server.shutdown().await;
@@ -163,7 +167,7 @@ async fn delete() -> Result<()> {
         .into_inner();
     sleep(Duration::from_secs(1)).await;
 
-    client.delete(DeleteRequest { id: response.id }).await?;
+    client.delete(DeleteRequest { ids: vec![response.id] }).await?;
 
     let response = client.list(()).await?.into_inner();
     assert_eq!(response.programs.len(), 0);

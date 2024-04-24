@@ -41,15 +41,15 @@ message ListResponse {
 }
 
 message StopRequest {
-  string id = 1;
+  repeated string ids = 1;
 }
 
 message RestartRequest {
-  string id = 1;
+  repeated string ids = 1;
 }
 
 message DeleteRequest {
-  string id = 1;
+  repeated string ids = 1;
 }
 
 message LogRequest {
