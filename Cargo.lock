@@ -2749,13 +2749,14 @@ dependencies = [
  "bincode",
  "bytes",
  "cap-std",
+ "chrono",
  "clap",
  "dirs 5.0.1",
+ "env_logger",
  "http 1.1.0",
  "http-body-util",
  "hyper 1.3.1",
  "log",
- "once_cell",
  "parking_lot 0.12.1",
  "prost",
  "rand",
@@ -2794,14 +2795,8 @@ name = "wacker-daemon"
 version = "0.6.0"
 dependencies = [
  "anyhow",
- "chrono",
  "clap",
- "env_logger",
- "log",
- "sled",
  "tokio",
- "tokio-stream",
- "tonic",
  "wacker",
 ]
 

@@ -1,8 +1,9 @@
+use crate::proto::wacker_server::Wacker;
 use crate::runtime::{new_engines, Engine, ProgramMeta, PROGRAM_TYPE_HTTP, PROGRAM_TYPE_WASI};
 use crate::utils::generate_random_string;
 use crate::{
     DeleteRequest, ListResponse, LogRequest, LogResponse, Program, ProgramResponse, RestartRequest, RunRequest,
-    ServeRequest, StopRequest, Wacker, PROGRAM_STATUS_ERROR, PROGRAM_STATUS_FINISHED, PROGRAM_STATUS_RUNNING,
+    ServeRequest, StopRequest, PROGRAM_STATUS_ERROR, PROGRAM_STATUS_FINISHED, PROGRAM_STATUS_RUNNING,
     PROGRAM_STATUS_STOPPED,
 };
 use ahash::AHashMap;

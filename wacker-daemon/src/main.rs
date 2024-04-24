@@ -1,14 +1,7 @@
-use anyhow::{bail, Result};
-use chrono::Local;
+use anyhow::Result;
 use clap::Parser;
-use env_logger::{Builder, WriteStyle};
-use log::{info, LevelFilter};
-use std::fs::{create_dir_all, remove_file};
-use std::io::Write;
-use tokio::net::UnixListener;
 use tokio::signal;
-use tokio_stream::wrappers::UnixListenerStream;
-use wacker::{get_db_path, get_logs_dir, get_sock_path, new_service};
+use wacker::Server;
 
 #[derive(Parser)]
 #[command(name = "wackerd")]
@@ -22,47 +15,11 @@ fn version() -> &'static str {
 
 impl WackerDaemon {
     async fn execute(self) -> Result<()> {
-        let sock_path = get_sock_path()?;
-        if sock_path.exists() {
-            bail!("wackerd socket file exists, is wackerd already running?");
-        }
-
-        let logs_dir = get_logs_dir()?;
-        if !logs_dir.exists() {
-            create_dir_all(logs_dir)?;
-        }
-
-        let uds = UnixListener::bind(sock_path)?;
-        let uds_stream = UnixListenerStream::new(uds);
-
-        Builder::new()
-            .format(|buf, record| {
-                writeln!(
-                    buf,
-                    "[{} {} {}] {}",
-                    Local::now().format("%Y-%m-%d %H:%M:%S"),
-                    record.level(),
-                    record.target(),
-                    record.args(),
-                )
-            })
-            .filter_level(LevelFilter::Info)
-            .write_style(WriteStyle::Never)
-            .init();
-
-        let db = sled::open(get_db_path()?)?;
-
-        info!("server listening on {:?}", sock_path);
-        Ok(tonic::transport::Server::builder()
-            .add_service(new_service(db.clone(), logs_dir).await?)
-            .serve_with_incoming_shutdown(uds_stream, async {
+        Server::new()
+            .start(async {
                 signal::ctrl_c().await.expect("failed to listen for event");
-                println!();
-                info!("Shutting down the server");
-                remove_file(sock_path).expect("failed to remove existing socket file");
-                db.flush_async().await.expect("failed to flush the db");
             })
-            .await?)
+            .await
     }
 }
 

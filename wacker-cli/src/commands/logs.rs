@@ -3,7 +3,7 @@ use clap::Parser;
 use std::io::{stdout, Write};
 use tokio_stream::StreamExt;
 use tonic::transport::Channel;
-use wacker::{LogRequest, WackerClient};
+use wacker::{Client, LogRequest};
 
 #[derive(Parser)]
 pub struct LogsCommand {
@@ -22,7 +22,7 @@ pub struct LogsCommand {
 
 impl LogsCommand {
     /// Executes the command.
-    pub async fn execute(self, mut client: WackerClient<Channel>) -> Result<()> {
+    pub async fn execute(self, mut client: Client<Channel>) -> Result<()> {
         match client
             .logs(LogRequest {
                 id: self.id,
