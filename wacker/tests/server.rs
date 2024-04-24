@@ -1,6 +1,6 @@
 mod common;
 
-use crate::common::Server;
+use crate::common::TestServer;
 use anyhow::Result;
 use reqwest::Client;
 use std::collections::HashMap;
@@ -14,7 +14,7 @@ use wacker::{
 
 #[tokio::test(flavor = "multi_thread")]
 async fn run() -> Result<()> {
-    let mut server = Server::new();
+    let mut server = TestServer::new();
     server.start().await;
 
     let mut client = server.client().await;
@@ -42,7 +42,7 @@ async fn run() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn serve() -> Result<()> {
-    let mut server = Server::new();
+    let mut server = TestServer::new();
     server.start().await;
 
     let mut client = server.client().await;
@@ -74,7 +74,7 @@ async fn serve() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn list() -> Result<()> {
-    let mut server = Server::new();
+    let mut server = TestServer::new();
     server.start().await;
 
     let mut client = server.client().await;
@@ -94,7 +94,7 @@ async fn list() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn stop() -> Result<()> {
-    let mut server = Server::new();
+    let mut server = TestServer::new();
     server.start().await;
 
     let mut client = server.client().await;
@@ -119,7 +119,7 @@ async fn stop() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn restart() -> Result<()> {
-    let mut server = Server::new();
+    let mut server = TestServer::new();
     server.start().await;
 
     let mut client = server.client().await;
@@ -150,7 +150,7 @@ async fn restart() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn delete() -> Result<()> {
-    let mut server = Server::new();
+    let mut server = TestServer::new();
     server.start().await;
 
     let mut client = server.client().await;
@@ -174,7 +174,7 @@ async fn delete() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn logs() -> Result<()> {
-    let mut server = Server::new();
+    let mut server = TestServer::new();
     server.start().await;
 
     let mut client = server.client().await;

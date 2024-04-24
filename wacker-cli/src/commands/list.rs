@@ -7,9 +7,7 @@ use tabled::{
     Table, Tabled,
 };
 use tonic::transport::Channel;
-use wacker::{
-    WackerClient, PROGRAM_STATUS_ERROR, PROGRAM_STATUS_FINISHED, PROGRAM_STATUS_RUNNING, PROGRAM_STATUS_STOPPED,
-};
+use wacker::{Client, PROGRAM_STATUS_ERROR, PROGRAM_STATUS_FINISHED, PROGRAM_STATUS_RUNNING, PROGRAM_STATUS_STOPPED};
 
 #[derive(Parser)]
 pub struct ListCommand {}
@@ -36,7 +34,7 @@ static STATUS: Lazy<AHashMap<u32, &'static str>> = Lazy::new(|| {
 });
 
 impl ListCommand {
-    pub async fn execute(self, mut client: WackerClient<Channel>) -> Result<()> {
+    pub async fn execute(self, mut client: Client<Channel>) -> Result<()> {
         let response = match client.list(()).await {
             Ok(resp) => resp,
             Err(err) => bail!(err.message().to_string()),

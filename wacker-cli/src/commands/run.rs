@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use clap::Parser;
 use tonic::transport::Channel;
-use wacker::{RunRequest, WackerClient};
+use wacker::{Client, RunRequest};
 
 #[derive(Parser)]
 pub struct RunCommand {
@@ -15,7 +15,7 @@ pub struct RunCommand {
 
 impl RunCommand {
     /// Executes the command.
-    pub async fn execute(self, mut client: WackerClient<Channel>) -> Result<()> {
+    pub async fn execute(self, mut client: Client<Channel>) -> Result<()> {
         match client
             .run(RunRequest {
                 path: self.path.to_string(),

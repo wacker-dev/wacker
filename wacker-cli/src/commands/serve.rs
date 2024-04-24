@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use clap::Parser;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use tonic::transport::Channel;
-use wacker::{ServeRequest, WackerClient};
+use wacker::{Client, ServeRequest};
 
 const DEFAULT_ADDR: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8080);
 
@@ -18,7 +18,7 @@ pub struct ServeCommand {
 
 impl ServeCommand {
     /// Executes the command.
-    pub async fn execute(self, mut client: WackerClient<Channel>) -> Result<()> {
+    pub async fn execute(self, mut client: Client<Channel>) -> Result<()> {
         match client
             .serve(ServeRequest {
                 path: self.path.to_string(),
