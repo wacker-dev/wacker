@@ -12,6 +12,7 @@ use async_stream::try_stream;
 use async_trait::async_trait;
 use log::{error, info, warn};
 use parking_lot::Mutex;
+use rayon::prelude::*;
 use sled::Db;
 use std::fmt::Display;
 use std::fs::{remove_file, OpenOptions};
@@ -135,6 +136,23 @@ impl Server {
             Err(err) => Err(Status::internal(err.to_string())),
         }
     }
+
+    fn get_program_keys(&self) -> Vec<String> {
+        let programs = self.programs.lock();
+        programs.par_iter().map(|(key, _)| key.clone()).collect()
+    }
+}
+
+fn search_id(keys: &Vec<String>, id: &str) -> Result<String> {
+    let positions: Vec<_> = keys.par_iter().positions(|s| s.starts_with(id)).collect();
+    match positions.len() {
+        0 => Err(anyhow!("program {} not found", id)),
+        1 => Ok(keys[positions[0]].clone()),
+        _ => Err(anyhow!(
+            "ambiguous program id {}, more than one program starts with this id",
+            id
+        )),
+    }
 }
 
 fn to_status<E: Display>(err: E) -> Status {
@@ -223,19 +241,18 @@ impl Wacker for Server {
 
     async fn stop(&self, request: Request<StopRequest>) -> Result<Response<()>, Status> {
         let req = request.into_inner();
+        let keys = self.get_program_keys();
         let mut programs = self.programs.lock();
 
         for id in req.ids {
+            let id = search_id(keys.as_ref(), id.as_str()).map_err(to_status)?;
+
             info!("Stop the program: {}", id);
 
-            match programs.get_mut(id.as_str()) {
-                Some(program) => {
-                    if !program.handler.is_finished() {
-                        program.handler.abort();
-                        program.status = PROGRAM_STATUS_STOPPED;
-                    }
-                }
-                None => return Err(Status::not_found(format!("program {} not exists", id))),
+            let program = programs.get_mut(id.as_str()).unwrap();
+            if !program.handler.is_finished() {
+                program.handler.abort();
+                program.status = PROGRAM_STATUS_STOPPED;
             }
         }
         Ok(Response::new(()))
@@ -243,18 +260,16 @@ impl Wacker for Server {
 
     async fn restart(&self, request: Request<RestartRequest>) -> Result<Response<()>, Status> {
         let req = request.into_inner();
+        let keys = self.get_program_keys();
 
         for id in req.ids {
+            let id = search_id(keys.as_ref(), id.as_str()).map_err(to_status)?;
+
             info!("Restart the program: {}", id);
 
             let meta = {
                 let programs = self.programs.lock();
-                let program = programs.get(id.as_str());
-                if program.is_none() {
-                    return Err(Status::not_found(format!("program {} not exists", id)));
-                }
-
-                let program = program.unwrap();
+                let program = programs.get(id.as_str()).unwrap();
                 if !program.handler.is_finished() {
                     program.handler.abort();
                 }
@@ -268,29 +283,31 @@ impl Wacker for Server {
 
     async fn delete(&self, request: Request<DeleteRequest>) -> Result<Response<()>, Status> {
         let req = request.into_inner();
+        let keys = self.get_program_keys();
         let mut programs = self.programs.lock();
 
         for id in req.ids {
+            let id = search_id(keys.as_ref(), id.as_str()).map_err(to_status)?;
+
             info!("Delete the program: {}", id);
 
-            if let Some(program) = programs.get(id.as_str()) {
-                if !program.handler.is_finished() {
-                    program.handler.abort();
-                }
-
-                if let Err(err) = remove_file(self.logs_dir.join(id.as_str())) {
-                    if err.kind() != ErrorKind::NotFound {
-                        return Err(Status::internal(format!(
-                            "failed to remove the log file for {}: {}",
-                            id.as_str(),
-                            err
-                        )));
-                    }
-                }
-
-                self.db.remove(id.as_str()).map_err(to_status)?;
-                programs.remove(id.as_str());
+            let program = programs.get(id.as_str()).unwrap();
+            if !program.handler.is_finished() {
+                program.handler.abort();
             }
+
+            if let Err(err) = remove_file(self.logs_dir.join(id.as_str())) {
+                if err.kind() != ErrorKind::NotFound {
+                    return Err(Status::internal(format!(
+                        "failed to remove the log file for {}: {}",
+                        id.as_str(),
+                        err
+                    )));
+                }
+            }
+
+            self.db.remove(id.as_str()).map_err(to_status)?;
+            programs.remove(id.as_str());
         }
         Ok(Response::new(()))
     }
@@ -299,8 +316,10 @@ impl Wacker for Server {
 
     async fn logs(&self, request: Request<LogRequest>) -> Result<Response<Self::LogsStream>, Status> {
         let req = request.into_inner();
+        let keys = self.get_program_keys();
+        let id = search_id(keys.as_ref(), req.id.as_str()).map_err(to_status)?;
 
-        let mut file = File::open(self.logs_dir.join(req.id)).await?;
+        let mut file = File::open(self.logs_dir.join(id)).await?;
         let mut contents = String::new();
         let last_position = file.read_to_string(&mut contents).await?;
         let lines: Vec<&str> = contents.split_inclusive('\n').collect();
