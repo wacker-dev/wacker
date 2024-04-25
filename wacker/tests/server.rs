@@ -98,16 +98,19 @@ async fn stop() -> Result<()> {
     server.start().await;
 
     let mut client = server.client().await;
-    let response = client
+    client
         .run(RunRequest {
             path: "./tests/wasm/time.wasm".parse()?,
             args: vec![],
         })
-        .await?
-        .into_inner();
+        .await?;
     sleep(Duration::from_secs(1)).await;
 
-    client.stop(StopRequest { ids: vec![response.id] }).await?;
+    client
+        .stop(StopRequest {
+            ids: vec!["t".to_string()],
+        })
+        .await?;
     sleep(Duration::from_secs(1)).await;
 
     let response = client.list(()).await?.into_inner();
@@ -139,11 +142,9 @@ async fn restart() -> Result<()> {
         .into_inner();
     sleep(Duration::from_secs(1)).await;
 
-    let response = client.restart(RestartRequest { ids: vec![run_resp.id] }).await;
-    assert!(response.is_ok());
     let response = client
         .restart(RestartRequest {
-            ids: vec![serve_resp.id],
+            ids: vec![run_resp.id, serve_resp.id],
         })
         .await;
     assert!(response.is_ok());
@@ -158,19 +159,57 @@ async fn delete() -> Result<()> {
     server.start().await;
 
     let mut client = server.client().await;
-    let response = client
+    client
         .run(RunRequest {
             path: "./tests/wasm/hello.wasm".parse()?,
             args: vec![],
         })
-        .await?
-        .into_inner();
+        .await?;
     sleep(Duration::from_secs(1)).await;
 
-    client.delete(DeleteRequest { ids: vec![response.id] }).await?;
+    client
+        .delete(DeleteRequest {
+            ids: vec!["h".to_string()],
+        })
+        .await?;
 
     let response = client.list(()).await?.into_inner();
     assert_eq!(response.programs.len(), 0);
+
+    server.shutdown().await;
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn delete_ambiguous_id() -> Result<()> {
+    let mut server = TestServer::new();
+    server.start().await;
+
+    let mut client = server.client().await;
+    client
+        .run(RunRequest {
+            path: "./tests/wasm/hello.wasm".parse()?,
+            args: vec![],
+        })
+        .await?;
+    client
+        .run(RunRequest {
+            path: "./tests/wasm/hello.wasm".parse()?,
+            args: vec![],
+        })
+        .await?;
+    sleep(Duration::from_secs(1)).await;
+
+    let response = client
+        .delete(DeleteRequest {
+            ids: vec!["hello".to_string()],
+        })
+        .await;
+    assert!(response.is_err());
+    assert_eq!(
+        response.err().unwrap().message(),
+        "ambiguous program id hello, more than one program starts with this id"
+    );
 
     server.shutdown().await;
     Ok(())
@@ -182,18 +221,17 @@ async fn logs() -> Result<()> {
     server.start().await;
 
     let mut client = server.client().await;
-    let response = client
+    client
         .run(RunRequest {
             path: "./tests/wasm/hello.wasm".parse()?,
             args: vec![],
         })
-        .await?
-        .into_inner();
+        .await?;
     sleep(Duration::from_secs(3)).await;
 
     let mut response = client
         .logs(LogRequest {
-            id: response.id,
+            id: "hello".to_string(),
             follow: false,
             tail: 1,
         })
