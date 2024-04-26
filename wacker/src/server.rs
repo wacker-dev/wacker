@@ -76,14 +76,16 @@ impl Server {
     async fn load_from_db(&self) -> Result<()> {
         for data in self.db.iter() {
             let (id, bytes) = data?;
-            let id = String::from_utf8(id.to_vec())?;
-            let meta: ProgramMeta = bincode::deserialize(&bytes)?;
-            self.run_inner(id, meta).await?
+            self.run_inner(
+                std::str::from_utf8(id.to_vec().as_ref())?,
+                bincode::deserialize(&bytes)?,
+            )
+            .await?
         }
         Ok(())
     }
 
-    async fn run_inner(&self, id: String, meta: ProgramMeta) -> Result<()> {
+    async fn run_inner(&self, id: &str, meta: ProgramMeta) -> Result<()> {
         let mut programs = self.programs.lock();
         let (sender, receiver) = oneshot::channel();
         let engine = self
@@ -95,20 +97,20 @@ impl Server {
         let mut stdout = OpenOptions::new()
             .create(true)
             .append(true)
-            .open(self.logs_dir.join(id.clone()))?;
+            .open(self.logs_dir.join(id))?;
         let stdout_clone = stdout.try_clone()?;
 
         programs.insert(
-            id.clone(),
+            id.to_string(),
             InnerProgram {
-                id: id.clone(),
+                id: id.to_string(),
                 meta: meta.clone(),
                 receiver,
                 handler: task::spawn(async move {
                     match engine.run(meta, stdout_clone).await {
                         Ok(_) => {}
                         Err(e) => {
-                            error!("running program {} error: {}", id, e);
+                            error!("running program error: {}", e);
                             if let Err(file_err) = stdout.write_fmt(format_args!("{}\n", e)) {
                                 warn!("write error log failed: {}", file_err);
                             }
@@ -126,12 +128,12 @@ impl Server {
         Ok(())
     }
 
-    async fn update_db_and_run(&self, id: String, meta: ProgramMeta) -> Result<Response<ProgramResponse>, Status> {
+    async fn update_db_and_run(&self, id: &str, meta: ProgramMeta) -> Result<Response<ProgramResponse>, Status> {
         match bincode::serialize(&meta) {
             Ok(bytes) => {
-                self.db.insert(id.as_str(), bytes).map_err(to_status)?;
-                self.run_inner(id.clone(), meta).await.map_err(to_status)?;
-                Ok(Response::new(ProgramResponse { id }))
+                self.db.insert(id, bytes).map_err(to_status)?;
+                self.run_inner(id, meta).await.map_err(to_status)?;
+                Ok(Response::new(ProgramResponse { id: id.to_string() }))
             }
             Err(err) => Err(Status::internal(err.to_string())),
         }
@@ -177,7 +179,7 @@ impl Wacker for Server {
         info!("Execute newly added program: {} ({})", id, req.path);
 
         self.update_db_and_run(
-            id,
+            id.as_str(),
             ProgramMeta {
                 path: req.path,
                 program_type: PROGRAM_TYPE_WASI,
@@ -204,7 +206,7 @@ impl Wacker for Server {
         info!("Serve newly added program: {} ({})", id, req.path);
 
         self.update_db_and_run(
-            id,
+            id.as_str(),
             ProgramMeta {
                 path: req.path,
                 program_type: PROGRAM_TYPE_HTTP,
@@ -276,7 +278,7 @@ impl Wacker for Server {
                 program.meta.clone()
             };
 
-            self.run_inner(id, meta).await.map_err(to_status)?;
+            self.run_inner(id.as_str(), meta).await.map_err(to_status)?;
         }
         Ok(Response::new(()))
     }
