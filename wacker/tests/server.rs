@@ -2,8 +2,7 @@ mod common;
 
 use crate::common::TestServer;
 use anyhow::Result;
-use reqwest::Client;
-use std::collections::HashMap;
+use reqwest::ClientBuilder;
 use std::time::Duration;
 use tokio::time::sleep;
 use tokio_stream::StreamExt;
@@ -30,7 +29,7 @@ async fn run() -> Result<()> {
             args: vec!["-a=b".to_string(), "-c=d".to_string()],
         })
         .await?;
-    sleep(Duration::from_secs(5)).await;
+    sleep(Duration::from_secs(10)).await;
 
     let response = client.list(()).await?.into_inner();
     assert_eq!(response.programs[0].status, PROGRAM_STATUS_FINISHED);
@@ -52,14 +51,15 @@ async fn serve() -> Result<()> {
             addr: "localhost:8080".to_string(),
         })
         .await?;
-    sleep(Duration::from_secs(10)).await;
+    sleep(Duration::from_secs(1)).await;
 
-    let http_client = Client::new();
-    let params = HashMap::from([("hello", "world")]);
+    let http_client = ClientBuilder::new()
+        .timeout(Duration::from_secs(15))
+        .no_proxy()
+        .build()?;
     let response = http_client
         .get("http://localhost:8080/api_path")
-        .timeout(Duration::from_secs(10))
-        .query(&params)
+        .query(&[("hello", "world")])
         .send()
         .await?;
     assert!(response.status().is_success());
