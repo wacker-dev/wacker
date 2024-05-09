@@ -106,7 +106,9 @@ impl Server {
         let uds_stream = UnixListenerStream::new(uds);
         let service = proto::wacker_server::WackerServer::new(server::Server::new(db.clone(), logs_dir).await?)
             .send_compressed(CompressionEncoding::Zstd)
-            .accept_compressed(CompressionEncoding::Zstd);
+            .accept_compressed(CompressionEncoding::Zstd)
+            .send_compressed(CompressionEncoding::Gzip)
+            .accept_compressed(CompressionEncoding::Gzip);
 
         info!("server listening on {:?}", sock_path.as_path());
 
@@ -150,5 +152,6 @@ pub async fn new_client_with_path<P: AsRef<Path>>(sock_path: P) -> Result<Client
 
     Ok(Client::new(channel)
         .send_compressed(CompressionEncoding::Zstd)
-        .accept_compressed(CompressionEncoding::Zstd))
+        .accept_compressed(CompressionEncoding::Zstd)
+        .accept_compressed(CompressionEncoding::Gzip))
 }
