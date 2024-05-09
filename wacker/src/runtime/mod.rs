@@ -2,6 +2,7 @@ mod http;
 mod logs;
 mod wasi;
 
+use crate::{PROGRAM_TYPE_HTTP, PROGRAM_TYPE_WASI};
 use ahash::AHashMap;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -21,9 +22,6 @@ pub struct ProgramMeta {
 pub trait Engine: Send + Sync + 'static {
     async fn run(&self, meta: ProgramMeta, stdout: File) -> Result<()>;
 }
-
-pub const PROGRAM_TYPE_WASI: u32 = 0;
-pub const PROGRAM_TYPE_HTTP: u32 = 1;
 
 pub fn new_engines() -> Result<AHashMap<u32, Arc<dyn Engine>>> {
     let wasmtime_engine = new_wasmtime_engine()?;
