@@ -2761,7 +2761,7 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "wacker"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -2800,7 +2800,7 @@ dependencies = [
 
 [[package]]
 name = "wacker-cli"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -2815,7 +2815,7 @@ dependencies = [
 
 [[package]]
 name = "wacker-daemon"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "clap",
