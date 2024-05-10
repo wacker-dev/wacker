@@ -22,7 +22,7 @@ ahash.workspace = true
 
 dirs = "5.0.1"
 wasi-common = { version = "20.0.0", features = ["tokio"] }
-wasmtime = "20.0.0"
+wasmtime = "20.0.2"
 wasmtime-wasi = "20.0.0"
 wasmtime-wasi-http = "20.0.0"
 wasmparser = "0.202.0"
