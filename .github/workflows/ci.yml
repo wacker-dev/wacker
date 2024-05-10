@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.78.0
+        uses: dtolnay/rust-toolchain@1.80.0
         with:
           components: clippy, rustfmt
       - name: Install protoc
