@@ -12,7 +12,7 @@ authors = ["Xinzhao Xu"]
 edition = "2021"
 categories = ["wasm"]
 keywords = ["webassembly", "wasm", "wasi"]
-repository = "https://github.com/iawia002/wacker"
+repository = "https://github.com/wacker-dev/wacker"
 license = "Apache-2.0"
 
 [workspace.dependencies]
