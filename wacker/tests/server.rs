@@ -80,13 +80,13 @@ async fn run_http_path() -> Result<()> {
     let mut client = server.client().await;
     client
         .run(RunRequest {
-            path: "https://raw.githubusercontent.com/iawia002/wacker/main/wacker/tests/wasm/time.wasm".parse()?,
+            path: "https://raw.githubusercontent.com/wacker-dev/wacker/main/wacker/tests/wasm/time.wasm".parse()?,
             args: vec![],
         })
         .await?;
     client
         .serve(ServeRequest {
-            path: "https://raw.githubusercontent.com/iawia002/wacker/main/wacker/tests/wasm/http.wasm".parse()?,
+            path: "https://raw.githubusercontent.com/wacker-dev/wacker/main/wacker/tests/wasm/http.wasm".parse()?,
             addr: "localhost:8080".to_string(),
         })
         .await?;

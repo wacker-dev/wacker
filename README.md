@@ -2,11 +2,9 @@
 
 Like Docker, but for WASM.
 
-![CAUTION: Rustaceans are doing experiments](docs/caution.png)
-
 ## Installation
 
-You can download binaries directly from the [Releases](https://github.com/iawia002/wacker/releases) page.
+You can download binaries directly from the [Releases](https://github.com/wacker-dev/wacker/releases) page.
 
 Or you can install it using `cargo`:
 
@@ -31,11 +29,11 @@ $ wacker run hello.wasm
 $ wacker run time.wasm
 ```
 
-Where [hello.wasm](https://github.com/iawia002/wasi-examples/tree/main/hello) is a simple WASM program that prints out `Hello, world!` and exits, and [time.wasm](https://github.com/iawia002/wasi-examples/tree/main/time) is a long-running program that constantly prints out the current time.
+Where [hello.wasm](https://github.com/wacker-dev/wasi-examples/tree/main/hello) is a simple WASM program that prints out `Hello, world!` and exits, and [time.wasm](https://github.com/wacker-dev/wasi-examples/tree/main/time) is a long-running program that constantly prints out the current time.
 
-> You can find more WASI program examples at https://github.com/iawia002/wasi-examples.
+> You can find more WASI program examples at https://github.com/wacker-dev/wasi-examples.
 
-Serve an [HTTP WebAssembly program](https://github.com/iawia002/wasi-examples/tree/main/http):
+Serve an [HTTP WebAssembly program](https://github.com/wacker-dev/wasi-examples/tree/main/http):
 
 ```
 $ wacker serve hello_wasi_http.wasm --addr 127.0.0.1:8081
@@ -44,7 +42,7 @@ $ wacker serve hello_wasi_http.wasm --addr 127.0.0.1:8081
 The path can be a local file path or a URL, eg:
 
 ```
-$ wacker run https://raw.githubusercontent.com/iawia002/wacker/main/wacker/tests/wasm/hello.wasm
+$ wacker run https://raw.githubusercontent.com/wacker-dev/wacker/main/wacker/tests/wasm/hello.wasm
 ```
 
 List running programs:
