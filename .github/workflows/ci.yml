@@ -16,8 +16,10 @@ jobs:
         uses: dtolnay/rust-toolchain@1.78.0
         with:
           components: clippy, rustfmt
-      - name: Install Protoc
+      - name: Install protoc
         uses: arduino/setup-protoc@v3
+        with:
+          version: "26.1"
       - name: cargo fmt
         run: cargo fmt --all -- --check
       - name: cargo clippy
