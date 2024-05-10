@@ -37,8 +37,10 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y gcc-aarch64-linux-gnu
-      - name: Install Protoc
+      - name: Install protoc
         uses: arduino/setup-protoc@v3
+        with:
+          version: "26.1"
       - name: Get tag id
         id: get-tag
         uses: iawia002/get-tag-or-commit-id@v1
@@ -68,8 +70,10 @@ jobs:
           fetch-depth: 1
       - name: Install Rust
         uses: dtolnay/rust-toolchain@1.78.0
-      - name: Install Protoc
+      - name: Install protoc
         uses: arduino/setup-protoc@v3
+        with:
+          version: "26.1"
       - name: cargo publish
         run: |
           cargo publish -p wacker
