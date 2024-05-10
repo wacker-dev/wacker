@@ -1,11 +1,10 @@
 use crate::runtime::{
     logs::LogStream,
-    {Engine, ProgramMeta},
+    read, {Engine, ProgramMeta},
 };
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use std::fs::{read, File};
-use std::path::Path;
+use std::fs::File;
 use wasi_common::{tokio, I32Exit};
 use wasmtime::component::{Component, ResourceTable};
 use wasmtime::{Module, Store};
@@ -41,10 +40,10 @@ impl WasiEngine {
         Self { engine }
     }
 
-    fn load_module_contents(&self, engine: &wasmtime::Engine, path: &Path) -> Result<RunTarget> {
-        let bytes = read(path)?;
+    async fn load_module_contents(&self, engine: &wasmtime::Engine, path: &str) -> Result<RunTarget> {
+        let bytes = read(path).await?;
         let mut builder = wasmtime::CodeBuilder::new(engine);
-        let wasm_builder = builder.wasm(&bytes, Some(path))?;
+        let wasm_builder = builder.wasm(&bytes, Some(path.as_ref()))?;
         match wasmparser::Parser::is_component(&bytes) {
             true => Ok(RunTarget::Component(wasm_builder.compile_component()?)),
             false => Ok(RunTarget::Core(wasm_builder.compile_module()?)),
@@ -58,7 +57,7 @@ impl Engine for WasiEngine {
         let mut args = meta.args;
         args.insert(0, meta.path.clone());
 
-        match self.load_module_contents(&self.engine, Path::new(&meta.path))? {
+        match self.load_module_contents(&self.engine, &meta.path).await? {
             RunTarget::Core(module) => {
                 let stderr = stdout.try_clone()?;
 

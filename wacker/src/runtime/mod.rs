@@ -7,6 +7,7 @@ use ahash::AHashMap;
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use std::fs;
 use std::fs::File;
 use std::sync::Arc;
 
@@ -48,4 +49,14 @@ fn new_wasmtime_engine() -> Result<wasmtime::Engine> {
     // threads. Notably this includes the compiled module as well as a `Linker`,
     // which contains all our host functions we want to define.
     wasmtime::Engine::new(&config)
+}
+
+async fn read(path: &str) -> Result<Vec<u8>> {
+    match path.starts_with("http") {
+        true => {
+            let bytes = reqwest::get(path).await?.bytes().await?;
+            Ok(Vec::from(bytes))
+        }
+        false => Ok(fs::read(path)?),
+    }
 }

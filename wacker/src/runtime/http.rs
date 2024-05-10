@@ -1,6 +1,6 @@
 use crate::runtime::{
     logs::LogStream,
-    {Engine, ProgramMeta},
+    read, {Engine, ProgramMeta},
 };
 use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
@@ -96,7 +96,8 @@ impl Engine for HttpEngine {
         let mut linker = Linker::new(&self.engine);
         self.add_to_linker(&mut linker)?;
 
-        let component = Component::from_file(&self.engine, meta.path)?;
+        let bytes = read(&meta.path).await?;
+        let component = Component::from_binary(&self.engine, &bytes)?;
         let instance = linker.instantiate_pre(&component)?;
 
         let listener = tokio::net::TcpListener::bind(meta.addr.unwrap()).await?;

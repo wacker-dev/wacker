@@ -5,7 +5,7 @@ use wacker::{Client, RunRequest};
 
 #[derive(Parser)]
 pub struct RunCommand {
-    /// Program file path
+    /// Program file path/URL
     #[arg(required = true)]
     path: String,
     /// Arguments to pass to the WebAssembly module.

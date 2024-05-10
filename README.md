@@ -41,6 +41,12 @@ Serve an [HTTP WebAssembly program](https://github.com/iawia002/wasi-examples/tr
 $ wacker serve hello_wasi_http.wasm --addr 127.0.0.1:8081
 ```
 
+The path can be a local file path or a URL, eg:
+
+```
+$ wacker run https://raw.githubusercontent.com/iawia002/wacker/main/wacker/tests/wasm/hello.wasm
+```
+
 List running programs:
 
 ```
