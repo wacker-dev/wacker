@@ -8,7 +8,7 @@ use tokio::time::sleep;
 use tokio_stream::StreamExt;
 use wacker::{
     DeleteRequest, LogRequest, RestartRequest, RunRequest, ServeRequest, StopRequest, PROGRAM_STATUS_FINISHED,
-    PROGRAM_STATUS_STOPPED,
+    PROGRAM_STATUS_RUNNING, PROGRAM_STATUS_STOPPED,
 };
 
 #[tokio::test(flavor = "multi_thread")]
@@ -67,6 +67,34 @@ async fn serve() -> Result<()> {
         response.text().await?,
         "{\"path\":\"/api_path\",\"query\":{\"hello\":\"world\"}}"
     );
+
+    server.shutdown().await;
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn run_http_path() -> Result<()> {
+    let mut server = TestServer::new();
+    server.start().await;
+
+    let mut client = server.client().await;
+    client
+        .run(RunRequest {
+            path: "https://raw.githubusercontent.com/iawia002/wacker/main/wacker/tests/wasm/time.wasm".parse()?,
+            args: vec![],
+        })
+        .await?;
+    client
+        .serve(ServeRequest {
+            path: "https://raw.githubusercontent.com/iawia002/wacker/main/wacker/tests/wasm/http.wasm".parse()?,
+            addr: "localhost:8080".to_string(),
+        })
+        .await?;
+    sleep(Duration::from_secs(10)).await;
+
+    let response = client.list(()).await?.into_inner();
+    assert_eq!(response.programs[0].status, PROGRAM_STATUS_RUNNING);
+    assert_eq!(response.programs[1].status, PROGRAM_STATUS_RUNNING);
 
     server.shutdown().await;
     Ok(())

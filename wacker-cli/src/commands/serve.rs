@@ -8,7 +8,7 @@ const DEFAULT_ADDR: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 
 
 #[derive(Parser)]
 pub struct ServeCommand {
-    /// Program file path
+    /// Program file path/URL
     #[arg(required = true)]
     path: String,
     /// Socket address for the web server to bind to
