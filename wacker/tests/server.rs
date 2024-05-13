@@ -29,11 +29,18 @@ async fn run() -> Result<()> {
             args: vec!["-a=b".to_string(), "-c=d".to_string()],
         })
         .await?;
-    sleep(Duration::from_secs(10)).await;
+    client
+        .run(RunRequest {
+            path: "./tests/wasm/http_client.wasm".parse()?,
+            args: vec![],
+        })
+        .await?;
+    sleep(Duration::from_secs(15)).await;
 
     let response = client.list(()).await?.into_inner();
-    assert_eq!(response.programs[0].status, PROGRAM_STATUS_FINISHED);
-    assert_eq!(response.programs[1].status, PROGRAM_STATUS_FINISHED);
+    for program in response.programs {
+        assert_eq!(program.status, PROGRAM_STATUS_FINISHED);
+    }
 
     server.shutdown().await;
     Ok(())

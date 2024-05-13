@@ -1,4 +1,5 @@
 use crate::runtime::{
+    host::Host,
     logs::LogStream,
     read, {Engine, ProgramMeta},
 };
@@ -13,37 +14,11 @@ use std::sync::{
 };
 use wasmtime::component::{Component, InstancePre, Linker, ResourceTable};
 use wasmtime::Store;
-use wasmtime_wasi::{bindings, WasiCtx, WasiCtxBuilder, WasiView};
+use wasmtime_wasi::{bindings, WasiCtxBuilder};
 use wasmtime_wasi_http::{
     bindings::http::types as http_types, body::HyperOutgoingBody, hyper_response_error, io::TokioIo, WasiHttpCtx,
     WasiHttpView,
 };
-
-struct Host {
-    table: ResourceTable,
-    ctx: WasiCtx,
-    http: WasiHttpCtx,
-}
-
-impl WasiView for Host {
-    fn table(&mut self) -> &mut ResourceTable {
-        &mut self.table
-    }
-
-    fn ctx(&mut self) -> &mut WasiCtx {
-        &mut self.ctx
-    }
-}
-
-impl WasiHttpView for Host {
-    fn ctx(&mut self) -> &mut WasiHttpCtx {
-        &mut self.http
-    }
-
-    fn table(&mut self) -> &mut ResourceTable {
-        &mut self.table
-    }
-}
 
 #[derive(Clone)]
 pub struct HttpEngine {

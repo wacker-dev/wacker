@@ -1,3 +1,4 @@
+mod host;
 mod http;
 mod logs;
 mod wasi;

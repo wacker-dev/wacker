@@ -1,4 +1,5 @@
 use crate::runtime::{
+    host::Host,
     logs::LogStream,
     read, {Engine, ProgramMeta},
 };
@@ -8,26 +9,12 @@ use std::fs::File;
 use wasi_common::{tokio, I32Exit};
 use wasmtime::component::{Component, ResourceTable};
 use wasmtime::{Module, Store};
-use wasmtime_wasi::bindings::Command;
-use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiView};
+use wasmtime_wasi::{bindings::Command, WasiCtxBuilder};
+use wasmtime_wasi_http::WasiHttpCtx;
 
 #[derive(Clone)]
 pub struct WasiEngine {
     engine: wasmtime::Engine,
-}
-
-struct Host {
-    ctx: WasiCtx,
-    table: ResourceTable,
-}
-
-impl WasiView for Host {
-    fn table(&mut self) -> &mut ResourceTable {
-        &mut self.table
-    }
-    fn ctx(&mut self) -> &mut WasiCtx {
-        &mut self.ctx
-    }
 }
 
 enum RunTarget {
@@ -114,8 +101,9 @@ impl Engine for WasiEngine {
                 let mut store = Store::new(
                     &self.engine,
                     Host {
-                        ctx,
                         table: ResourceTable::new(),
+                        ctx,
+                        http: WasiHttpCtx,
                     },
                 );
                 store.set_fuel(u64::MAX)?;
@@ -123,6 +111,7 @@ impl Engine for WasiEngine {
 
                 let mut linker = wasmtime::component::Linker::new(&self.engine);
                 wasmtime_wasi::add_to_linker_async(&mut linker)?;
+                wasmtime_wasi_http::proxy::add_only_http_to_linker(&mut linker)?;
 
                 let (command, _instance) = Command::instantiate_async(&mut store, &component, &linker).await?;
                 match command.wasi_cli_run().call_run(&mut store).await {
