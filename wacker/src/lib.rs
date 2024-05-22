@@ -31,7 +31,7 @@ pub const PROGRAM_STATUS_FINISHED: u32 = 1;
 pub const PROGRAM_STATUS_ERROR: u32 = 2;
 pub const PROGRAM_STATUS_STOPPED: u32 = 3;
 
-pub const PROGRAM_TYPE_WASI: u32 = 0;
+pub const PROGRAM_TYPE_CLI: u32 = 0;
 pub const PROGRAM_TYPE_HTTP: u32 = 1;
 
 fn get_main_dir() -> Result<PathBuf> {
