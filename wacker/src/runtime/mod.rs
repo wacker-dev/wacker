@@ -1,9 +1,9 @@
+mod cli;
 mod host;
 mod http;
 mod logs;
-mod wasi;
 
-use crate::{PROGRAM_TYPE_HTTP, PROGRAM_TYPE_WASI};
+use crate::{PROGRAM_TYPE_CLI, PROGRAM_TYPE_HTTP};
 use ahash::AHashMap;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -27,11 +27,11 @@ pub trait Engine: Send + Sync + 'static {
 
 pub fn new_engines() -> Result<AHashMap<u32, Arc<dyn Engine>>> {
     let wasmtime_engine = new_wasmtime_engine()?;
-    let wasi_engine: Arc<dyn Engine> = Arc::new(wasi::WasiEngine::new(wasmtime_engine.clone()));
+    let cli_engine: Arc<dyn Engine> = Arc::new(cli::CliEngine::new(wasmtime_engine.clone()));
     let http_engine: Arc<dyn Engine> = Arc::new(http::HttpEngine::new(wasmtime_engine));
 
     Ok(AHashMap::from([
-        (PROGRAM_TYPE_WASI, wasi_engine),
+        (PROGRAM_TYPE_CLI, cli_engine),
         (PROGRAM_TYPE_HTTP, http_engine),
     ]))
 }

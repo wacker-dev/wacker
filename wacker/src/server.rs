@@ -4,7 +4,7 @@ use crate::utils::generate_random_string;
 use crate::{
     DeleteRequest, ListResponse, LogRequest, LogResponse, Program, ProgramResponse, RestartRequest, RunRequest,
     ServeRequest, StopRequest, PROGRAM_STATUS_ERROR, PROGRAM_STATUS_FINISHED, PROGRAM_STATUS_RUNNING,
-    PROGRAM_STATUS_STOPPED, PROGRAM_TYPE_HTTP, PROGRAM_TYPE_WASI,
+    PROGRAM_STATUS_STOPPED, PROGRAM_TYPE_CLI, PROGRAM_TYPE_HTTP,
 };
 use ahash::AHashMap;
 use anyhow::{anyhow, Error, Result};
@@ -100,17 +100,18 @@ impl Server {
             .open(self.logs_dir.join(id))?;
         let stdout_clone = stdout.try_clone()?;
 
+        let id = id.to_string();
         programs.insert(
-            id.to_string(),
+            id.clone(),
             InnerProgram {
-                id: id.to_string(),
+                id: id.clone(),
                 meta: meta.clone(),
                 receiver,
                 handler: task::spawn(async move {
                     match engine.run(meta, stdout_clone).await {
                         Ok(_) => {}
                         Err(e) => {
-                            error!("running program error: {}", e);
+                            error!("running program {} error: {}", id, e);
                             if let Err(file_err) = stdout.write_fmt(format_args!("{}\n", e)) {
                                 warn!("write error log failed: {}", file_err);
                             }
@@ -182,7 +183,7 @@ impl Wacker for Server {
             id.as_str(),
             ProgramMeta {
                 path: req.path,
-                program_type: PROGRAM_TYPE_WASI,
+                program_type: PROGRAM_TYPE_CLI,
                 addr: None,
                 args: req.args,
             },

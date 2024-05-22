@@ -13,7 +13,7 @@ use wasmtime_wasi::{bindings::Command, WasiCtxBuilder};
 use wasmtime_wasi_http::WasiHttpCtx;
 
 #[derive(Clone)]
-pub struct WasiEngine {
+pub struct CliEngine {
     engine: wasmtime::Engine,
 }
 
@@ -22,7 +22,7 @@ enum RunTarget {
     Component(Component),
 }
 
-impl WasiEngine {
+impl CliEngine {
     pub fn new(engine: wasmtime::Engine) -> Self {
         Self { engine }
     }
@@ -39,7 +39,7 @@ impl WasiEngine {
 }
 
 #[async_trait]
-impl Engine for WasiEngine {
+impl Engine for CliEngine {
     async fn run(&self, meta: ProgramMeta, stdout: File) -> Result<()> {
         let mut args = meta.args;
         args.insert(0, meta.path.clone());
@@ -116,7 +116,7 @@ impl Engine for WasiEngine {
                 let (command, _instance) = Command::instantiate_async(&mut store, &component, &linker).await?;
                 match command.wasi_cli_run().call_run(&mut store).await {
                     Ok(_) => Ok(()),
-                    Err(_) => Err(anyhow!("call run function error")),
+                    Err(e) => Err(anyhow!("call run function error: {}", e)),
                 }
             }
         }
