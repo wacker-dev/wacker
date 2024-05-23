@@ -103,7 +103,7 @@ impl Engine for CliEngine {
                     Host {
                         table: ResourceTable::new(),
                         ctx,
-                        http: WasiHttpCtx,
+                        http: WasiHttpCtx::new(),
                     },
                 );
                 store.set_fuel(u64::MAX)?;

@@ -14,7 +14,7 @@ use std::sync::{
 };
 use wasmtime::component::{Component, InstancePre, Linker, ResourceTable};
 use wasmtime::Store;
-use wasmtime_wasi::{bindings, WasiCtxBuilder};
+use wasmtime_wasi::WasiCtxBuilder;
 use wasmtime_wasi_http::{
     bindings::http::types as http_types, body::HyperOutgoingBody, hyper_response_error, io::TokioIo, WasiHttpCtx,
     WasiHttpView,
@@ -42,24 +42,13 @@ impl HttpEngine {
         let host = Host {
             table: ResourceTable::new(),
             ctx: builder.build(),
-            http: WasiHttpCtx,
+            http: WasiHttpCtx::new(),
         };
 
         let mut store = Store::new(&self.engine, host);
         store.set_fuel(u64::MAX)?;
 
         Ok(store)
-    }
-
-    fn add_to_linker(&self, linker: &mut Linker<Host>) -> Result<()> {
-        // ref: https://github.com/bytecodealliance/wasmtime/pull/7728
-        bindings::filesystem::preopens::add_to_linker(linker, |t| t)?;
-        bindings::filesystem::types::add_to_linker(linker, |t| t)?;
-        bindings::cli::environment::add_to_linker(linker, |t| t)?;
-        bindings::cli::exit::add_to_linker(linker, |t| t)?;
-
-        wasmtime_wasi_http::proxy::add_to_linker(linker)?;
-        Ok(())
     }
 }
 
@@ -69,7 +58,8 @@ impl Engine for HttpEngine {
         use hyper::server::conn::http1;
 
         let mut linker = Linker::new(&self.engine);
-        self.add_to_linker(&mut linker)?;
+        wasmtime_wasi::add_to_linker_async(&mut linker)?;
+        wasmtime_wasi_http::proxy::add_only_http_to_linker(&mut linker)?;
 
         let bytes = read(&meta.path).await?;
         let component = Component::from_binary(&self.engine, &bytes)?;
