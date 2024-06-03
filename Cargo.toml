@@ -20,7 +20,7 @@ wacker = { path = "wacker", version = "0.9.0" }
 
 anyhow = "1.0.86"
 clap = { version = "4.5.4", features = ["derive"] }
-tokio = { version = "1.36.0", features = ["rt", "rt-multi-thread", "macros"] }
+tokio = { version = "1.38.0", features = ["rt", "rt-multi-thread", "macros"] }
 tokio-stream = { version = "0.1.14", features = ["net"] }
 tonic = { version = "0.11.0", features = ["zstd", "gzip"] }
 ahash = "0.8.11"
