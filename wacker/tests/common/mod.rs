@@ -1,7 +1,7 @@
 use std::fs::remove_dir_all;
+use std::thread::sleep;
 use std::time::Duration;
 use tokio::sync::broadcast::{channel, Receiver, Sender};
-use tokio::time::sleep;
 use tonic::transport::Channel;
 use wacker::{new_client_with_path, utils::generate_random_string, Client, Server};
 
@@ -39,9 +39,11 @@ impl TestServer {
     pub async fn client(&self) -> Client<Channel> {
         new_client_with_path(format!("{}/wacker.sock", self.dir)).await.unwrap()
     }
+}
 
-    pub async fn shutdown(&self) {
+impl Drop for TestServer {
+    fn drop(&mut self) {
         let _ = self.sender.send(());
-        sleep(Duration::from_secs(1)).await;
+        sleep(Duration::from_secs(1));
     }
 }
