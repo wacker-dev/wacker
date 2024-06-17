@@ -42,7 +42,6 @@ async fn run() -> Result<()> {
         assert_eq!(program.status, PROGRAM_STATUS_FINISHED);
     }
 
-    server.shutdown().await;
     Ok(())
 }
 
@@ -75,7 +74,6 @@ async fn serve() -> Result<()> {
         "{\"path\":\"/api_path\",\"query\":{\"hello\":\"world\"}}"
     );
 
-    server.shutdown().await;
     Ok(())
 }
 
@@ -103,7 +101,6 @@ async fn run_http_path() -> Result<()> {
     assert_eq!(response.programs[0].status, PROGRAM_STATUS_RUNNING);
     assert_eq!(response.programs[1].status, PROGRAM_STATUS_RUNNING);
 
-    server.shutdown().await;
     Ok(())
 }
 
@@ -123,7 +120,6 @@ async fn list() -> Result<()> {
     let response = client.list(()).await?.into_inner();
     assert_eq!(response.programs.len(), 1);
 
-    server.shutdown().await;
     Ok(())
 }
 
@@ -151,7 +147,6 @@ async fn stop() -> Result<()> {
     let response = client.list(()).await?.into_inner();
     assert_eq!(response.programs[0].status, PROGRAM_STATUS_STOPPED);
 
-    server.shutdown().await;
     Ok(())
 }
 
@@ -184,7 +179,6 @@ async fn restart() -> Result<()> {
         .await;
     assert!(response.is_ok());
 
-    server.shutdown().await;
     Ok(())
 }
 
@@ -211,7 +205,6 @@ async fn delete() -> Result<()> {
     let response = client.list(()).await?.into_inner();
     assert_eq!(response.programs.len(), 0);
 
-    server.shutdown().await;
     Ok(())
 }
 
@@ -246,7 +239,6 @@ async fn delete_ambiguous_id() -> Result<()> {
         "ambiguous program id hello, more than one program starts with this id"
     );
 
-    server.shutdown().await;
     Ok(())
 }
 
@@ -275,6 +267,5 @@ async fn logs() -> Result<()> {
     let item = response.next().await.unwrap();
     assert_eq!(item.unwrap().content, "Hello, world!\n");
 
-    server.shutdown().await;
     Ok(())
 }
