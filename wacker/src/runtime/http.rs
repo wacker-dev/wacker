@@ -13,7 +13,7 @@ use std::sync::{
     Arc,
 };
 use wasmtime::component::{Component, InstancePre, Linker, ResourceTable};
-use wasmtime::Store;
+use wasmtime::{Config, InstanceAllocationStrategy, Memory, MemoryType, PoolingAllocationConfig, Store};
 use wasmtime_wasi::WasiCtxBuilder;
 use wasmtime_wasi_http::{
     bindings::http::types as http_types, body::HyperOutgoingBody, hyper_response_error, io::TokioIo, WasiHttpCtx,
@@ -26,8 +26,16 @@ pub struct HttpEngine {
 }
 
 impl HttpEngine {
-    pub fn new(engine: wasmtime::Engine) -> Self {
-        Self { engine }
+    pub fn new(config: &Config) -> Result<Self> {
+        let mut config = config.clone();
+        if use_pooling_allocator_by_default().unwrap_or(false) {
+            let pooling_config = PoolingAllocationConfig::default();
+            config.allocation_strategy(InstanceAllocationStrategy::Pooling(pooling_config));
+        }
+
+        Ok(Self {
+            engine: wasmtime::Engine::new(&config)?,
+        })
     }
 
     fn new_store(&self, req_id: u64, stdout: File) -> Result<Store<Host>> {
@@ -198,4 +206,40 @@ async fn handle_request(
             bail!("guest never invoked `response-outparam::set` method: {e:?}")
         }
     }
+}
+
+// ref: https://github.com/bytecodealliance/wasmtime/blob/ee9e1ca54586516c14d0c4a8dae63691a1d4b50c/src/commands/serve.rs#L561-L597
+
+/// The pooling allocator is tailor made for the `wasmtime serve` use case, so
+/// try to use it when we can. The main cost of the pooling allocator, however,
+/// is the virtual memory required to run it. Not all systems support the same
+/// amount of virtual memory, for example some aarch64 and riscv64 configuration
+/// only support 39 bits of virtual address space.
+///
+/// The pooling allocator, by default, will request 1000 linear memories each
+/// sized at 6G per linear memory. This is 6T of virtual memory which ends up
+/// being about 42 bits of the address space. This exceeds the 39 bit limit of
+/// some systems, so there the pooling allocator will fail by default.
+///
+/// This function attempts to dynamically determine the hint for the pooling
+/// allocator. This returns `Some(true)` if the pooling allocator should be used
+/// by default, or `None` or an error otherwise.
+///
+/// The method for testing this is to allocate a 0-sized 64-bit linear memory
+/// with a maximum size that's N bits large where we force all memories to be
+/// static. This should attempt to acquire N bits of the virtual address space.
+/// If successful that should mean that the pooling allocator is OK to use, but
+/// if it fails then the pooling allocator is not used and the normal mmap-based
+/// implementation is used instead.
+fn use_pooling_allocator_by_default() -> Result<bool> {
+    const BITS_TO_TEST: u32 = 42;
+    let mut config = Config::new();
+    config.wasm_memory64(true);
+    config.static_memory_maximum_size(1 << BITS_TO_TEST);
+    let engine = wasmtime::Engine::new(&config)?;
+    let mut store = Store::new(&engine, ());
+    // NB: the maximum size is in wasm pages to take out the 16-bits of wasm
+    // page size here from the maximum size.
+    let ty = MemoryType::new64(0, Some(1 << (BITS_TO_TEST - 16)));
+    Ok(Memory::new(&mut store, ty).is_ok())
 }
