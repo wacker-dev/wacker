@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use std::fs::File;
 use wasi_common::{tokio, I32Exit};
 use wasmtime::component::{Component, ResourceTable};
-use wasmtime::{Module, Store};
+use wasmtime::{Config, Module, Store};
 use wasmtime_wasi::{bindings::Command, WasiCtxBuilder};
 use wasmtime_wasi_http::WasiHttpCtx;
 
@@ -23,8 +23,10 @@ enum RunTarget {
 }
 
 impl CliEngine {
-    pub fn new(engine: wasmtime::Engine) -> Self {
-        Self { engine }
+    pub fn new(config: &Config) -> Result<Self> {
+        Ok(Self {
+            engine: wasmtime::Engine::new(config)?,
+        })
     }
 
     async fn load_module_contents(&self, engine: &wasmtime::Engine, path: &str) -> Result<RunTarget> {

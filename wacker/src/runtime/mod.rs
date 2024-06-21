@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::fs::File;
 use std::sync::Arc;
+use wasmtime::Config;
 
 #[derive(Clone, Default, Serialize, Deserialize)]
 pub struct ProgramMeta {
@@ -26,9 +27,9 @@ pub trait Engine: Send + Sync + 'static {
 }
 
 pub fn new_engines() -> Result<AHashMap<u32, Arc<dyn Engine>>> {
-    let wasmtime_engine = new_wasmtime_engine()?;
-    let cli_engine: Arc<dyn Engine> = Arc::new(cli::CliEngine::new(wasmtime_engine.clone()));
-    let http_engine: Arc<dyn Engine> = Arc::new(http::HttpEngine::new(wasmtime_engine));
+    let config = default_wasmtime_config()?;
+    let cli_engine: Arc<dyn Engine> = Arc::new(cli::CliEngine::new(&config)?);
+    let http_engine: Arc<dyn Engine> = Arc::new(http::HttpEngine::new(&config)?);
 
     Ok(AHashMap::from([
         (PROGRAM_TYPE_CLI, cli_engine),
@@ -36,8 +37,8 @@ pub fn new_engines() -> Result<AHashMap<u32, Arc<dyn Engine>>> {
     ]))
 }
 
-fn new_wasmtime_engine() -> Result<wasmtime::Engine> {
-    let mut config = wasmtime::Config::new();
+fn default_wasmtime_config() -> Result<Config> {
+    let mut config = Config::new();
     // We need this engine's `Store`s to be async, and consume fuel, so
     // that they can co-operatively yield during execution.
     config.async_support(true);
@@ -45,11 +46,7 @@ fn new_wasmtime_engine() -> Result<wasmtime::Engine> {
     config.cache_config_load_default()?;
     config.cranelift_opt_level(wasmtime::OptLevel::SpeedAndSize);
     config.wasm_component_model(true);
-
-    // Initialize global per-process state. This state will be shared amongst all
-    // threads. Notably this includes the compiled module as well as a `Linker`,
-    // which contains all our host functions we want to define.
-    wasmtime::Engine::new(&config)
+    Ok(config)
 }
 
 async fn read(path: &str) -> Result<Vec<u8>> {
