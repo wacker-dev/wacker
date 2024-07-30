@@ -12,12 +12,16 @@ use std::sync::{
     atomic::{AtomicU64, Ordering},
     Arc,
 };
-use wasmtime::component::{Component, InstancePre, Linker, ResourceTable};
-use wasmtime::{Config, InstanceAllocationStrategy, Memory, MemoryType, PoolingAllocationConfig, Store};
+use wasmtime::{
+    component::{Component, Linker, ResourceTable},
+    Config, InstanceAllocationStrategy, Memory, MemoryType, PoolingAllocationConfig, Store,
+};
 use wasmtime_wasi::WasiCtxBuilder;
 use wasmtime_wasi_http::{
-    bindings::http::types as http_types, body::HyperOutgoingBody, hyper_response_error, io::TokioIo, WasiHttpCtx,
-    WasiHttpView,
+    bindings::{http::types::Scheme, ProxyPre},
+    body::HyperOutgoingBody,
+    io::TokioIo,
+    WasiHttpCtx, WasiHttpView,
 };
 
 #[derive(Clone)]
@@ -67,11 +71,12 @@ impl Engine for HttpEngine {
 
         let mut linker = Linker::new(&self.engine);
         wasmtime_wasi::add_to_linker_async(&mut linker)?;
-        wasmtime_wasi_http::proxy::add_only_http_to_linker(&mut linker)?;
+        wasmtime_wasi_http::add_only_http_to_linker_async(&mut linker)?;
 
         let bytes = read(&meta.path).await?;
         let component = Component::from_binary(&self.engine, &bytes)?;
         let instance = linker.instantiate_pre(&component)?;
+        let instance = ProxyPre::new(instance)?;
 
         let listener = tokio::net::TcpListener::bind(meta.addr.unwrap()).await?;
 
@@ -103,7 +108,7 @@ impl Engine for HttpEngine {
 
 struct ProxyHandlerInner {
     http_engine: HttpEngine,
-    instance_pre: InstancePre<Host>,
+    instance_pre: ProxyPre<Host>,
     next_id: AtomicU64,
     stdout: File,
 }
@@ -118,7 +123,7 @@ impl ProxyHandlerInner {
 struct ProxyHandler(Arc<ProxyHandlerInner>);
 
 impl ProxyHandler {
-    fn new(http_engine: HttpEngine, instance_pre: InstancePre<Host>, stdout: File) -> Self {
+    fn new(http_engine: HttpEngine, instance_pre: ProxyPre<Host>, stdout: File) -> Self {
         Self(Arc::new(ProxyHandlerInner {
             http_engine,
             instance_pre,
@@ -132,57 +137,30 @@ async fn handle_request(
     ProxyHandler(inner): ProxyHandler,
     req: Request<hyper::body::Incoming>,
 ) -> Result<hyper::Response<HyperOutgoingBody>> {
-    use http_body_util::BodyExt;
-
     let (sender, receiver) = tokio::sync::oneshot::channel();
 
+    let req_id = inner.next_req_id();
+
+    let mut stdout = inner.stdout.try_clone()?;
+    stdout.write_fmt(format_args!(
+        "Request {req_id} handling {} to {}\n",
+        req.method(),
+        req.uri()
+    ))?;
+
+    let mut store = inner.http_engine.new_store(req_id, stdout)?;
+
+    let req = store.data_mut().new_incoming_request(Scheme::Http, req)?;
+    let out = store.data_mut().new_response_outparam(sender)?;
+    let proxy = inner.instance_pre.instantiate_async(&mut store).await?;
+
     let task = tokio::task::spawn(async move {
-        let req_id = inner.next_req_id();
-        let (mut parts, body) = req.into_parts();
+        if let Err(e) = proxy.wasi_http_incoming_handler().call_handle(store, req, out).await {
+            log::error!("[{req_id}] :: {:#?}", e);
+            return Err(e);
+        }
 
-        parts.uri = {
-            let uri_parts = parts.uri.into_parts();
-
-            let scheme = uri_parts.scheme.unwrap_or(http::uri::Scheme::HTTP);
-
-            let host = if let Some(val) = parts.headers.get(hyper::header::HOST) {
-                std::str::from_utf8(val.as_bytes()).map_err(|_| http_types::ErrorCode::HttpRequestUriInvalid)?
-            } else {
-                uri_parts
-                    .authority
-                    .as_ref()
-                    .ok_or(http_types::ErrorCode::HttpRequestUriInvalid)?
-                    .host()
-            };
-
-            let path_with_query = uri_parts
-                .path_and_query
-                .ok_or(http_types::ErrorCode::HttpRequestUriInvalid)?;
-
-            hyper::Uri::builder()
-                .scheme(scheme)
-                .authority(host)
-                .path_and_query(path_with_query)
-                .build()
-                .map_err(|_| http_types::ErrorCode::HttpRequestUriInvalid)?
-        };
-
-        let req = Request::from_parts(parts, body.map_err(hyper_response_error).boxed());
-
-        let mut stdout = inner.stdout.try_clone()?;
-        stdout.write_fmt(format_args!(
-            "Request {req_id} handling {} to {}\n",
-            req.method(),
-            req.uri()
-        ))?;
-
-        let mut store = inner.http_engine.new_store(req_id, stdout)?;
-
-        let req = store.data_mut().new_incoming_request(req)?;
-        let out = store.data_mut().new_response_outparam(sender)?;
-
-        let (proxy, _) = wasmtime_wasi_http::proxy::Proxy::instantiate_pre(&mut store, &inner.instance_pre).await?;
-        proxy.wasi_http_incoming_handler().call_handle(store, req, out).await
+        Ok(())
     });
 
     match receiver.await {
