@@ -113,9 +113,9 @@ impl Engine for CliEngine {
 
                 let mut linker = wasmtime::component::Linker::new(&self.engine);
                 wasmtime_wasi::add_to_linker_async(&mut linker)?;
-                wasmtime_wasi_http::proxy::add_only_http_to_linker(&mut linker)?;
+                wasmtime_wasi_http::add_only_http_to_linker_async(&mut linker)?;
 
-                let (command, _instance) = Command::instantiate_async(&mut store, &component, &linker).await?;
+                let command = Command::instantiate_async(&mut store, &component, &linker).await?;
                 match command.wasi_cli_run().call_run(&mut store).await {
                     Ok(_) => Ok(()),
                     Err(e) => Err(anyhow!("call run function error: {}", e)),
