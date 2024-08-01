@@ -8,6 +8,7 @@ mod proto {
 use anyhow::{anyhow, bail, Result};
 use chrono::Local;
 use env_logger::{Builder, Target, WriteStyle};
+use hyper_util::rt::TokioIo;
 use log::{info, warn, LevelFilter};
 use std::fs::{create_dir_all, remove_file};
 use std::future::Future;
@@ -145,8 +146,11 @@ pub async fn new_client_with_path<P: AsRef<Path>>(sock_path: P) -> Result<Client
     // We will ignore this uri because uds do not use it
     let channel = Endpoint::try_from("unix://wacker")?
         .connect_with_connector(service_fn(move |_| {
-            // Connect to a Uds socket
-            UnixStream::connect(path.clone())
+            let path = path.clone();
+            async move {
+                // Connect to a Uds socket
+                Ok::<_, std::io::Error>(TokioIo::new(UnixStream::connect(path).await?))
+            }
         }))
         .await?;
 
