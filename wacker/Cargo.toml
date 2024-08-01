@@ -47,7 +47,7 @@ log = "0.4.21"
 rayon = "1.10.0"
 reqwest = "0.12.5"
 # We do not rely on this directly, in order to fix the cross-compiling issue
-openssl = { version = "0.10.64", features = ["vendored"] }
+openssl = { version = "0.10.66", features = ["vendored"] }
 
 [build-dependencies]
 anyhow.workspace = true
