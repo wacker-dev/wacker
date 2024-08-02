@@ -41,6 +41,7 @@ jobs:
         uses: arduino/setup-protoc@v3
         with:
           version: "26.1"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Get tag id
         id: get-tag
         uses: iawia002/get-tag-or-commit-id@v1
@@ -74,6 +75,7 @@ jobs:
         uses: arduino/setup-protoc@v3
         with:
           version: "26.1"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: cargo publish
         run: |
           cargo publish -p wacker

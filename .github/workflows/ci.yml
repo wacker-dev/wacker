@@ -20,6 +20,7 @@ jobs:
         uses: arduino/setup-protoc@v3
         with:
           version: "26.1"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: cargo fmt
         run: cargo fmt --all -- --check
       - name: cargo clippy
