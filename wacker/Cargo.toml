@@ -21,11 +21,11 @@ tonic.workspace = true
 ahash.workspace = true
 
 dirs = "5.0.1"
-wasi-common = { version = "23.0.1", features = ["tokio"] }
-wasmtime = "23.0.1"
-wasmtime-wasi = "23.0.1"
-wasmtime-wasi-http = "23.0.1"
-wasmparser = "0.212.0"
+wasi-common = { version = "24.0.0", features = ["tokio"] }
+wasmtime = "24.0.0"
+wasmtime-wasi = "24.0.0"
+wasmtime-wasi-http = "24.0.0"
+wasmparser = "0.215.0"
 cap-std = "3.0.0"
 rand = "0.8.5"
 tower = "0.4.13"
