@@ -32,10 +32,9 @@ impl CliEngine {
     async fn load_module_contents(&self, engine: &wasmtime::Engine, path: &str) -> Result<RunTarget> {
         let bytes = read(path).await?;
         let mut builder = wasmtime::CodeBuilder::new(engine);
-        let wasm_builder = builder.wasm(&bytes, Some(path.as_ref()))?;
-        match wasmparser::Parser::is_component(&bytes) {
-            true => Ok(RunTarget::Component(wasm_builder.compile_component()?)),
-            false => Ok(RunTarget::Core(wasm_builder.compile_module()?)),
+        match builder.wasm_binary_or_text(&bytes, Some(path.as_ref()))?.hint() {
+            Some(wasmtime::CodeHint::Component) => Ok(RunTarget::Component(builder.compile_component()?)),
+            Some(wasmtime::CodeHint::Module) | None => Ok(RunTarget::Core(builder.compile_module()?)),
         }
     }
 }
