@@ -18,7 +18,7 @@ license = "Apache-2.0"
 [workspace.dependencies]
 wacker = { path = "wacker", version = "0.10.0" }
 
-anyhow = "1.0.86"
+anyhow = "1.0.89"
 clap = { version = "4.5.13", features = ["derive"] }
 tokio = { version = "1.38.0", features = ["rt", "rt-multi-thread", "macros"] }
 tokio-stream = { version = "0.1.14", features = ["net"] }
