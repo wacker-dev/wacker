@@ -2851,7 +2851,6 @@ dependencies = [
  "ahash",
  "anyhow",
  "clap",
- "once_cell",
  "tabled",
  "tokio",
  "tokio-stream",

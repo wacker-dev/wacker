@@ -1,7 +1,7 @@
 use ahash::AHashMap;
 use anyhow::{bail, Result};
 use clap::Parser;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use tabled::{
     settings::{object::Columns, Modify, Padding, Style, Width},
     Table, Tabled,
@@ -24,7 +24,7 @@ struct Program {
     address: String,
 }
 
-static STATUS: Lazy<AHashMap<u32, &'static str>> = Lazy::new(|| {
+static STATUS: LazyLock<AHashMap<u32, &'static str>> = LazyLock::new(|| {
     AHashMap::from([
         (PROGRAM_STATUS_RUNNING, "Running"),
         (PROGRAM_STATUS_FINISHED, "Finished"),
