@@ -29,7 +29,7 @@ jobs:
         with:
           fetch-depth: 1
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.78.0
+        uses: dtolnay/rust-toolchain@1.82.0
         with:
           targets: ${{ matrix.target }}
       - name: Install dependencies
@@ -70,7 +70,7 @@ jobs:
         with:
           fetch-depth: 1
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.78.0
+        uses: dtolnay/rust-toolchain@1.82.0
       - name: Install protoc
         uses: arduino/setup-protoc@v3
         with:
