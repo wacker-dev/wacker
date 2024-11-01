@@ -35,7 +35,7 @@ hyper-util = "0.1.6"
 http = "1.1.0"
 http-body-util = "0.1.2"
 bytes = "1.7.1"
-async-trait = "0.1.81"
+async-trait = "0.1.83"
 serde = { version = "1.0.204", features = ["derive"] }
 bincode = "1.3.3"
 parking_lot = "0.12.3"
