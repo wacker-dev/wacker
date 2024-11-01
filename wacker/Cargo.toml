@@ -25,7 +25,7 @@ wasi-common = { version = "25.0.1", features = ["tokio"] }
 wasmtime = "25.0.1"
 wasmtime-wasi = "25.0.1"
 wasmtime-wasi-http = "25.0.1"
-cap-std = "3.0.0"
+cap-std = "3.3.0"
 rand = "0.8.5"
 tower = "0.4.13"
 prost = "0.13.1"
