@@ -18,7 +18,7 @@ clap.workspace = true
 tokio.workspace = true
 tokio-stream.workspace = true
 tonic.workspace = true
-ahash.workspace = true
+hashbrown.workspace = true
 
 dirs = "5.0.1"
 wasi-common = { version = "25.0.1", features = ["tokio"] }

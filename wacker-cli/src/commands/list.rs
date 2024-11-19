@@ -1,6 +1,6 @@
-use ahash::AHashMap;
 use anyhow::{bail, Result};
 use clap::Parser;
+use hashbrown::HashMap;
 use std::sync::LazyLock;
 use tabled::{
     settings::{object::Columns, Modify, Padding, Style, Width},
@@ -24,8 +24,8 @@ struct Program {
     address: String,
 }
 
-static STATUS: LazyLock<AHashMap<u32, &'static str>> = LazyLock::new(|| {
-    AHashMap::from([
+static STATUS: LazyLock<HashMap<u32, &'static str>> = LazyLock::new(|| {
+    HashMap::from([
         (PROGRAM_STATUS_RUNNING, "Running"),
         (PROGRAM_STATUS_FINISHED, "Finished"),
         (PROGRAM_STATUS_ERROR, "Error"),

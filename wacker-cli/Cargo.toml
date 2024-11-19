@@ -24,6 +24,6 @@ clap.workspace = true
 tokio.workspace = true
 tokio-stream.workspace = true
 tonic.workspace = true
-ahash.workspace = true
+hashbrown.workspace = true
 
 tabled = "0.15.0"
