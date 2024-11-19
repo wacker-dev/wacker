@@ -4,9 +4,9 @@ mod http;
 mod logs;
 
 use crate::{PROGRAM_TYPE_CLI, PROGRAM_TYPE_HTTP};
-use ahash::AHashMap;
 use anyhow::Result;
 use async_trait::async_trait;
+use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::fs::File;
@@ -26,12 +26,12 @@ pub trait Engine: Send + Sync + 'static {
     async fn run(&self, meta: ProgramMeta, stdout: File) -> Result<()>;
 }
 
-pub fn new_engines() -> Result<AHashMap<u32, Arc<dyn Engine>>> {
+pub fn new_engines() -> Result<HashMap<u32, Arc<dyn Engine>>> {
     let config = default_wasmtime_config()?;
     let cli_engine: Arc<dyn Engine> = Arc::new(cli::CliEngine::new(&config)?);
     let http_engine: Arc<dyn Engine> = Arc::new(http::HttpEngine::new(&config)?);
 
-    Ok(AHashMap::from([
+    Ok(HashMap::from([
         (PROGRAM_TYPE_CLI, cli_engine),
         (PROGRAM_TYPE_HTTP, http_engine),
     ]))

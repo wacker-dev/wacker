@@ -6,10 +6,10 @@ use crate::{
     ServeRequest, StopRequest, PROGRAM_STATUS_ERROR, PROGRAM_STATUS_FINISHED, PROGRAM_STATUS_RUNNING,
     PROGRAM_STATUS_STOPPED, PROGRAM_TYPE_CLI, PROGRAM_TYPE_HTTP,
 };
-use ahash::AHashMap;
 use anyhow::{anyhow, Error, Result};
 use async_stream::try_stream;
 use async_trait::async_trait;
+use hashbrown::HashMap;
 use log::{error, info, warn};
 use parking_lot::Mutex;
 use rayon::prelude::*;
@@ -32,8 +32,8 @@ use tonic::{Request, Response, Status};
 
 pub struct Server {
     db: Db,
-    engines: AHashMap<u32, Arc<dyn Engine>>,
-    programs: Arc<Mutex<AHashMap<String, InnerProgram>>>,
+    engines: HashMap<u32, Arc<dyn Engine>>,
+    programs: Arc<Mutex<HashMap<String, InnerProgram>>>,
     logs_dir: PathBuf,
 }
 
@@ -65,7 +65,7 @@ impl Server {
         let service = Self {
             db,
             engines: new_engines()?,
-            programs: Arc::new(Mutex::new(AHashMap::new())),
+            programs: Arc::new(Mutex::new(HashMap::new())),
             logs_dir: logs_dir.as_ref().to_path_buf(),
         };
         service.load_from_db().await?;
