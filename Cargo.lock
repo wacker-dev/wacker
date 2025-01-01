@@ -1055,9 +1055,9 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.15.1"
+version = "0.15.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a9bfc1af68b1726ea47d3d5109de126281def866b33970e10fbab11b5dafab3"
+checksum = "bf151400ff0baff5465007dd2f3e717f3fe502074ca563069ce3a6629d07b289"
 dependencies = [
  "allocator-api2",
  "equivalent",
@@ -2832,7 +2832,7 @@ dependencies = [
  "clap",
  "dirs 5.0.1",
  "env_logger",
- "hashbrown 0.15.1",
+ "hashbrown 0.15.2",
  "http",
  "http-body-util",
  "hyper",
@@ -2863,7 +2863,7 @@ version = "0.10.0"
 dependencies = [
  "anyhow",
  "clap",
- "hashbrown 0.15.1",
+ "hashbrown 0.15.2",
  "tabled",
  "tokio",
  "tokio-stream",
