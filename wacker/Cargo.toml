@@ -22,7 +22,7 @@ hashbrown.workspace = true
 
 dirs = "5.0.1"
 wasi-common = { version = "25.0.1", features = ["tokio"] }
-wasmtime = "25.0.1"
+wasmtime = "28.0.0"
 wasmtime-wasi = "25.0.1"
 wasmtime-wasi-http = "25.0.1"
 cap-std = "3.0.0"
